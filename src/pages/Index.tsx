@@ -1,4 +1,4 @@
-import { Bell, Search, Radio } from "lucide-react";
+import { Bell, Search, Radio, Users, Bot } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StoryCircle from "@/components/StoryCircle";
 import PostCard from "@/components/PostCard";
@@ -58,15 +58,17 @@ const FeedPage = () => {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="font-display italic text-xl text-gold">JagX</h1>
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate("/live")} className="flex items-center gap-1.5 text-foreground">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/ai-chat")} className="text-gold">
+              <Bot className="size-5" />
+            </button>
+            <button onClick={() => navigate("/live")} className="flex items-center gap-1 text-foreground">
               <Radio className="size-4" />
-              <span className="text-[10px] uppercase tracking-widest font-semibold">Live</span>
             </button>
-            <button className="text-foreground">
-              <Search className="size-5" />
+            <button onClick={() => navigate("/discover")} className="text-foreground">
+              <Users className="size-5" />
             </button>
-            <button onClick={() => user ? navigate("/profile") : navigate("/auth")} className="relative text-foreground">
+            <button onClick={() => navigate("/notifications")} className="relative text-foreground">
               <Bell className="size-5" />
               <span className="absolute -top-1 -right-1 size-2 rounded-full gold-gradient" />
             </button>
@@ -77,12 +79,7 @@ const FeedPage = () => {
       {/* Stories */}
       <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar">
         {stories.map((story) => (
-          <StoryCircle
-            key={story.name}
-            imageUrl={story.imageUrl}
-            name={story.name}
-            isAdd={story.isAdd}
-          />
+          <StoryCircle key={story.name} imageUrl={story.imageUrl} name={story.name} isAdd={story.isAdd} />
         ))}
       </div>
 
