@@ -49,6 +49,9 @@ const posts = [
 ];
 
 const FeedPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
