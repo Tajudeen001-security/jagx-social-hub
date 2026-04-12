@@ -33,7 +33,8 @@ const AuthPage = () => {
           },
         });
         if (error) throw error;
-        toast.success("Check your email to verify your account!");
+        toast.success("Welcome to JagX! 🐆");
+        navigate("/");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
