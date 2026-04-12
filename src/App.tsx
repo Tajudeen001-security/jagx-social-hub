@@ -18,6 +18,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import AIChatPage from "./pages/AIChatPage";
 import DirectMessagePage from "./pages/DirectMessagePage";
 import UserProfilePage from "./pages/UserProfilePage";
+import EditProfilePage from "./pages/EditProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
