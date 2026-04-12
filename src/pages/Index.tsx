@@ -1,7 +1,9 @@
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Radio } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import StoryCircle from "@/components/StoryCircle";
 import PostCard from "@/components/PostCard";
 import BottomNav from "@/components/BottomNav";
+import { useAuth } from "@/contexts/AuthContext";
 
 const stories = [
   { name: "You", imageUrl: "", isAdd: true },
