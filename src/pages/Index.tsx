@@ -59,10 +59,14 @@ const FeedPage = () => {
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="font-display italic text-xl text-gold">JagX</h1>
           <div className="flex items-center gap-4">
+            <button onClick={() => navigate("/live")} className="flex items-center gap-1.5 text-foreground">
+              <Radio className="size-4" />
+              <span className="text-[10px] uppercase tracking-widest font-semibold">Live</span>
+            </button>
             <button className="text-foreground">
               <Search className="size-5" />
             </button>
-            <button className="relative text-foreground">
+            <button onClick={() => user ? navigate("/profile") : navigate("/auth")} className="relative text-foreground">
               <Bell className="size-5" />
               <span className="absolute -top-1 -right-1 size-2 rounded-full gold-gradient" />
             </button>
