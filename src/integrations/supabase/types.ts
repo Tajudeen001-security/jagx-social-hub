@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_users: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       coin_transactions: {
         Row: {
           amount: number
@@ -171,6 +192,39 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message_type: string
+          receiver_id: string
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_type?: string
+          receiver_id: string
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_type?: string
+          receiver_id?: string
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           content: string
@@ -285,6 +339,36 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      user_presence: {
+        Row: {
+          id: string
+          is_online: boolean
+          is_typing: boolean
+          last_seen: string
+          typing_to: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_online?: boolean
+          is_typing?: boolean
+          last_seen?: string
+          typing_to?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_online?: boolean
+          is_typing?: boolean
+          last_seen?: string
+          typing_to?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
