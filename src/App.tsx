@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import ReelsPage from "./pages/ReelsPage";
 import ChatPage from "./pages/ChatPage";
@@ -15,6 +16,8 @@ import LivePage from "./pages/LivePage";
 import DiscoverPage from "./pages/DiscoverPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import AIChatPage from "./pages/AIChatPage";
+import DirectMessagePage from "./pages/DirectMessagePage";
+import UserProfilePage from "./pages/UserProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,17 +30,19 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/reels" element={<ReelsPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/create" element={<CreatePage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/coins" element={<CoinsPage />} />
-            <Route path="/live" element={<LivePage />} />
-            <Route path="/discover" element={<DiscoverPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/ai-chat" element={<AIChatPage />} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/reels" element={<ProtectedRoute><ReelsPage /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/create" element={<ProtectedRoute><CreatePage /></ProtectedRoute>} />
+            <Route path="/coins" element={<ProtectedRoute><CoinsPage /></ProtectedRoute>} />
+            <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
+            <Route path="/discover" element={<ProtectedRoute><DiscoverPage /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+            <Route path="/ai-chat" element={<ProtectedRoute><AIChatPage /></ProtectedRoute>} />
+            <Route path="/dm/:userId" element={<ProtectedRoute><DirectMessagePage /></ProtectedRoute>} />
+            <Route path="/user/:userId" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
