@@ -41,7 +41,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Update user presence
+  useEffect(() => {
+    if (!user) return;
+
+    const updatePresence = (online: boolean) => {
+      supabase.from("user_presence").upsert(
+        { user_id: user.id, is_online: online, last_seen: new Date().toISOString(), is_typing: false },
+        { onConflict: "user_id" }
+      );
+    };
+
+    updatePresence(true);
+    const interval = setInterval(() => updatePresence(true), 60000);
+
+    const handleVisibility = () => updatePresence(!document.hidden);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("beforeunload", () => updatePresence(false));
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      updatePresence(false);
+    };
+  }, [user]);
+
   const signOut = async () => {
+    if (user) {
+      await supabase.from("user_presence").upsert(
+        { user_id: user.id, is_online: false, last_seen: new Date().toISOString(), is_typing: false },
+        { onConflict: "user_id" }
+      );
+    }
     await supabase.auth.signOut();
   };
 
