@@ -27,6 +27,13 @@ const FeedPage = () => {
   useEffect(() => {
     loadStories();
     loadPosts();
+
+    // Real-time feed updates
+    const channel = supabase.channel("feed-updates")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "posts" }, () => loadPosts())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const loadStories = async () => {
@@ -50,8 +57,8 @@ const FeedPage = () => {
   };
 
   const loadPosts = async () => {
-    const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(20);
-    if (!data || data.length === 0) return;
+    const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(50);
+    if (!data || data.length === 0) { setPosts([]); return; }
     const userIds = [...new Set(data.map(p => p.user_id))];
     const { data: profiles } = await supabase.from("profiles").select("user_id, username, avatar_url, is_verified").in("user_id", userIds);
     const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
@@ -72,14 +79,13 @@ const FeedPage = () => {
     setViewingIndex(0);
   };
 
-  // Fallback posts for empty state
-  const fallbackPosts = [
-    { username: "julian.v", avatarUrl: "https://picsum.photos/id/65/100/100", imageUrl: "https://picsum.photos/id/42/800/800", caption: "The brutalist intersection of light and shadow at the Pavilion ✨", likes: 1847, comments: 42, timeAgo: "2 hours ago", location: "Paris, France", isVerified: true },
-    { username: "elara.thorne", avatarUrl: "https://picsum.photos/id/66/100/100", imageUrl: "https://picsum.photos/id/48/800/800", caption: "Curating the morning quiet. Velvet textures and cold espresso ☕", likes: 426, comments: 18, timeAgo: "4 hours ago", location: "London, UK" },
-    { username: "drift.culture", avatarUrl: "https://picsum.photos/id/67/100/100", imageUrl: "https://picsum.photos/id/29/800/800", caption: "Nature doesn't rush, yet everything is accomplished 🌿", likes: 2103, comments: 67, timeAgo: "6 hours ago", isVerified: true },
-  ];
+  const handlePostDelete = (postId: string) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
 
-  const displayPosts = posts.length > 0 ? posts : [];
+  const handlePostEdit = (postId: string, newContent: string) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, content: newContent } : p));
+  };
 
   return (
     <div className="min-h-screen pb-24">
@@ -112,12 +118,14 @@ const FeedPage = () => {
 
       {/* Feed */}
       <div className="space-y-2">
-        {displayPosts.map((post) => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
+            id={post.id}
             username={post.username}
             avatarUrl={post.avatarUrl}
-            imageUrl={post.image_url || post.video_url || "https://picsum.photos/id/42/800/800"}
+            imageUrl={post.image_url || ""}
+            videoUrl={post.video_url || undefined}
             caption={post.content || ""}
             likes={0}
             comments={0}
@@ -125,14 +133,17 @@ const FeedPage = () => {
             isVerified={post.isVerified}
             userId={post.user_id}
             showFollow={post.user_id !== user?.id}
+            onDelete={() => handlePostDelete(post.id)}
+            onEdit={(newContent) => handlePostEdit(post.id, newContent)}
           />
         ))}
-        {displayPosts.length === 0 && fallbackPosts.map((post, i) => (
-          <PostCard key={i} {...post} />
-        ))}
+        {posts.length === 0 && (
+          <div className="py-16 text-center px-6">
+            <p className="text-muted-foreground text-sm">No posts yet. Create your first post! 🐆</p>
+          </div>
+        )}
       </div>
 
-      {/* Story Viewer */}
       {viewingStories && (
         <StoryViewer stories={viewingStories} initialIndex={viewingIndex} onClose={() => setViewingStories(null)} />
       )}
