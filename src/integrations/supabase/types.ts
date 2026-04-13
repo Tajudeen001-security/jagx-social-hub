@@ -130,6 +130,60 @@ export type Database = {
         }
         Relationships: []
       }
+      gifts: {
+        Row: {
+          coin_amount: number
+          created_at: string
+          creator_amount: number
+          gift_type: string
+          id: string
+          live_stream_id: string | null
+          platform_fee: number
+          post_id: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          coin_amount: number
+          created_at?: string
+          creator_amount?: number
+          gift_type?: string
+          id?: string
+          live_stream_id?: string | null
+          platform_fee?: number
+          post_id?: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          coin_amount?: number
+          created_at?: string
+          creator_amount?: number
+          gift_type?: string
+          id?: string
+          live_stream_id?: string | null
+          platform_fee?: number
+          post_id?: string | null
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gifts_live_stream_id_fkey"
+            columns: ["live_stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gifts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string
