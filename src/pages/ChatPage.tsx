@@ -1,8 +1,9 @@
-import { Search, Edit3, Bot } from "lucide-react";
+import { Search, Edit3, Bot, Users, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 
 interface Conversation {
@@ -22,11 +23,14 @@ const ChatPage = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [search, setSearch] = useState("");
+  const [groups, setGroups] = useState<any[]>([]);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groupName, setGroupName] = useState("");
 
   useEffect(() => {
     if (!user) return;
     loadConversations();
-
+    loadGroups();
     const channel = supabase.channel("chat-updates")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => loadConversations())
       .subscribe();
@@ -35,68 +39,55 @@ const ChatPage = () => {
 
   const loadConversations = async () => {
     if (!user) return;
-    // Get all messages involving current user
-    const { data: msgs } = await supabase.from("messages").select("*")
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-      .order("created_at", { ascending: false });
+    const { data: msgs } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: false });
     if (!msgs) return;
-
-    // Group by other user
     const convMap = new Map<string, { lastMsg: any; unread: number }>();
     for (const msg of msgs) {
       const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-      if (!convMap.has(otherId)) {
-        convMap.set(otherId, { lastMsg: msg, unread: 0 });
-      }
-      if (msg.receiver_id === user.id && !msg.is_read) {
-        const entry = convMap.get(otherId)!;
-        entry.unread++;
-      }
+      if (!convMap.has(otherId)) convMap.set(otherId, { lastMsg: msg, unread: 0 });
+      if (msg.receiver_id === user.id && !msg.is_read) convMap.get(otherId)!.unread++;
     }
-
-    // Load profiles and presence for all conversation partners
     const userIds = Array.from(convMap.keys());
     if (userIds.length === 0) return;
-    
     const { data: profiles } = await supabase.from("profiles").select("user_id, username, display_name, avatar_url, is_verified").in("user_id", userIds);
     const { data: presences } = await supabase.from("user_presence").select("user_id, is_online").in("user_id", userIds);
-
     const presenceMap = new Map(presences?.map(p => [p.user_id, p.is_online]) || []);
     const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-
-    const convs: Conversation[] = userIds.map(uid => {
+    setConversations(userIds.map(uid => {
       const entry = convMap.get(uid)!;
       const profile = profileMap.get(uid);
-      return {
-        userId: uid,
-        username: profile?.username || "user",
-        displayName: profile?.display_name || profile?.username || "User",
-        avatarUrl: profile?.avatar_url || null,
-        isVerified: profile?.is_verified || false,
-        lastMessage: entry.lastMsg.content,
-        lastMessageTime: entry.lastMsg.created_at,
-        unreadCount: entry.unread,
-        isOnline: presenceMap.get(uid) || false,
-      };
-    });
+      return { userId: uid, username: profile?.username || "user", displayName: profile?.display_name || profile?.username || "User", avatarUrl: profile?.avatar_url || null, isVerified: profile?.is_verified || false, lastMessage: entry.lastMsg.content, lastMessageTime: entry.lastMsg.created_at, unreadCount: entry.unread, isOnline: presenceMap.get(uid) || false };
+    }));
+  };
 
-    setConversations(convs);
+  const loadGroups = async () => {
+    if (!user) return;
+    const { data: memberOf } = await supabase.from("group_members").select("group_id").eq("user_id", user.id);
+    if (!memberOf || memberOf.length === 0) return;
+    const groupIds = memberOf.map(m => m.group_id);
+    const { data } = await supabase.from("group_chats").select("*").in("id", groupIds);
+    if (data) setGroups(data);
+  };
+
+  const createGroup = async () => {
+    if (!groupName.trim() || !user) return;
+    const { data, error } = await supabase.from("group_chats").insert({ name: groupName.trim(), creator_id: user.id }).select().single();
+    if (error || !data) { toast.error("Failed to create group"); return; }
+    await supabase.from("group_members").insert({ group_id: data.id, user_id: user.id, role: "admin" });
+    toast.success("Group created!"); setShowCreateGroup(false); setGroupName("");
+    navigate(`/group/${data.id}`);
   };
 
   const formatTime = (date: string) => {
     const d = new Date(date);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - d.getTime()) / 60000);
+    const diff = Math.floor((Date.now() - d.getTime()) / 60000);
     if (diff < 1) return "now";
     if (diff < 60) return `${diff}m`;
     if (diff < 1440) return `${Math.floor(diff / 60)}h`;
     return d.toLocaleDateString();
   };
 
-  const filtered = conversations.filter(c => 
-    c.displayName.toLowerCase().includes(search.toLowerCase()) || 
-    c.username.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = conversations.filter(c => c.displayName.toLowerCase().includes(search.toLowerCase()) || c.username.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="min-h-screen pb-24">
@@ -105,6 +96,7 @@ const ChatPage = () => {
           <h1 className="font-display italic text-xl text-gold">Messages</h1>
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/ai-chat")} className="text-gold"><Bot className="size-5" /></button>
+            <button onClick={() => setShowCreateGroup(true)} className="text-foreground"><Users className="size-5" /></button>
             <button className="text-foreground"><Edit3 className="size-5" /></button>
           </div>
         </div>
@@ -139,24 +131,35 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* JagX AI Buddy */}
+      {/* AI Buddy */}
       <button onClick={() => navigate("/ai-chat")} className="w-full px-4">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-surface border border-gold/20 mb-2">
-          <div className="size-12 rounded-full gold-gradient flex items-center justify-center shrink-0">
-            <Bot className="size-5 text-primary-foreground" />
-          </div>
+          <div className="size-12 rounded-full gold-gradient flex items-center justify-center shrink-0"><Bot className="size-5 text-primary-foreground" /></div>
           <div className="flex-1 text-left">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-gold">JagX Buddy AI</span>
-              <span className="text-gold text-xs">✓</span>
-            </div>
+            <div className="flex items-center gap-1"><span className="text-sm font-semibold text-gold">JagX Buddy AI</span><span className="text-gold text-xs">✓</span></div>
             <p className="text-xs text-muted-foreground line-clamp-1">Your AI assistant — ask anything!</p>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full gold-gradient text-primary-foreground font-bold uppercase tracking-widest">AI</span>
         </div>
       </button>
 
-      {/* Conversations */}
+      {/* Group chats */}
+      {groups.length > 0 && (
+        <div className="px-4 py-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Group Chats</p>
+          {groups.map(g => (
+            <button key={g.id} onClick={() => navigate(`/group/${g.id}`)} className="w-full flex items-center gap-3 py-2">
+              <div className="size-12 rounded-full gold-gradient flex items-center justify-center shrink-0"><Users className="size-5 text-primary-foreground" /></div>
+              <div className="flex-1 text-left">
+                <span className="text-sm font-semibold text-champagne">{g.name}</span>
+                <p className="text-xs text-muted-foreground">Group chat</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* DM Conversations */}
       <div className="divide-y divide-border/20">
         {filtered.map(c => (
           <button key={c.userId} onClick={() => navigate(`/dm/${c.userId}`)} className="w-full flex items-center gap-3 px-4 py-3 active:bg-surface-elevated transition-colors">
@@ -177,18 +180,32 @@ const ChatPage = () => {
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground line-clamp-1">{c.lastMessage}</p>
-                {c.unreadCount > 0 && (
-                  <span className="ml-2 size-5 rounded-full gold-gradient flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{c.unreadCount}</span>
-                )}
+                {c.unreadCount > 0 && <span className="ml-2 size-5 rounded-full gold-gradient flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{c.unreadCount}</span>}
               </div>
             </div>
           </button>
         ))}
       </div>
 
-      {conversations.length === 0 && (
+      {conversations.length === 0 && groups.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-6">
           <p className="text-muted-foreground text-sm text-center">No conversations yet. Follow people and start messaging!</p>
+        </div>
+      )}
+
+      {/* Create group modal */}
+      {showCreateGroup && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="w-full max-w-sm bg-surface rounded-2xl border border-border/30 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-champagne">Create Group Chat</h3>
+              <button onClick={() => setShowCreateGroup(false)}><X className="size-5 text-foreground" /></button>
+            </div>
+            <input type="text" placeholder="Group name..." value={groupName} onChange={e => setGroupName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && createGroup()}
+              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none mb-4" />
+            <button onClick={createGroup} disabled={!groupName.trim()} className="w-full py-3 rounded-xl gold-gradient text-primary-foreground font-bold text-sm disabled:opacity-50">Create Group</button>
+          </div>
         </div>
       )}
 
