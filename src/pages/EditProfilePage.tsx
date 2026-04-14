@@ -136,6 +136,11 @@ const EditProfilePage = () => {
           <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
             className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary resize-none" placeholder="Tell the world about yourself..." />
         </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Location</label>
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="City, Country"
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
       </div>
     </div>
   );
