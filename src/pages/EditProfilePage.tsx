@@ -74,7 +74,7 @@ const EditProfilePage = () => {
     if (!user) return;
     setSaving(true);
     const { error } = await supabase.from("profiles").update({
-      username, display_name: displayName, bio,
+      username, display_name: displayName, bio, location,
     }).eq("user_id", user.id);
     if (error) toast.error(error.message);
     else { toast.success("Profile updated!"); navigate("/profile"); }
