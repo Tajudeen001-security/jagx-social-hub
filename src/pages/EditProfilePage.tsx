@@ -25,6 +25,7 @@ const EditProfilePage = () => {
           setUsername(data.username || "");
           setDisplayName(data.display_name || "");
           setBio(data.bio || "");
+          setLocation(data.location || "");
         }
       });
   }, [user]);
