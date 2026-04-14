@@ -19,6 +19,9 @@ import AIChatPage from "./pages/AIChatPage";
 import DirectMessagePage from "./pages/DirectMessagePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
+import GroupChatPage from "./pages/GroupChatPage";
+import EarningsPage from "./pages/EarningsPage";
+import AdsPage from "./pages/AdsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +48,9 @@ const App = () => (
             <Route path="/dm/:userId" element={<ProtectedRoute><DirectMessagePage /></ProtectedRoute>} />
             <Route path="/user/:userId" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
             <Route path="/edit-profile" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+            <Route path="/group/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
+            <Route path="/earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
+            <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

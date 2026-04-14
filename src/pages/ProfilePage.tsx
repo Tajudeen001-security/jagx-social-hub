@@ -1,4 +1,4 @@
-import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit } from "lucide-react";
+import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
@@ -22,6 +22,8 @@ const ProfilePage = () => {
     supabase.from("followers").select("id", { count: "exact" }).eq("follower_id", user.id).then(({ count }) => setFollowingCount(count || 0));
   }, [user]);
 
+  const filteredPosts = activeTab === "reels" ? posts.filter(p => p.video_url) : posts;
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
@@ -30,13 +32,13 @@ const ProfilePage = () => {
             @{profile?.username || user?.user_metadata?.username || user?.email?.split("@")[0] || "user"}
           </h1>
           <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/earnings")} className="text-gold"><TrendingUp className="size-5" /></button>
             <button onClick={() => navigate("/coins")} className="text-gold"><Coins className="size-5" /></button>
             <button onClick={signOut} className="text-muted-foreground"><LogOut className="size-5" /></button>
           </div>
         </div>
       </header>
 
-      {/* Banner */}
       {profile?.banner_url && (
         <div className="h-28 overflow-hidden"><img src={profile.banner_url} className="w-full h-full object-cover" /></div>
       )}
@@ -59,7 +61,10 @@ const ProfilePage = () => {
               </h2>
               {profile?.is_verified && <BadgeCheck className="size-4 text-gold" />}
             </div>
-            {profile?.bio && <p className="text-xs text-muted-foreground mb-2">{profile.bio}</p>}
+            {profile?.bio && <p className="text-xs text-muted-foreground mb-1">{profile.bio}</p>}
+            {profile?.location && (
+              <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1"><MapPin className="size-3" /> {profile.location}</p>
+            )}
             {!profile?.bio && <p className="text-xs text-muted-foreground mb-3">New to JagX Buddy Connect ✨</p>}
             <div className="flex gap-6">
               <div className="text-center"><p className="text-sm font-bold text-champagne">{posts.length}</p><p className="text-[10px] text-muted-foreground">Posts</p></div>
@@ -73,7 +78,7 @@ const ProfilePage = () => {
           <button onClick={() => navigate("/edit-profile")} className="flex-1 py-2 rounded-lg gold-gradient text-primary-foreground text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
             <Edit className="size-3.5" /> Edit Profile
           </button>
-          <button className="flex-1 py-2 rounded-lg bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest">Share Profile</button>
+          <button onClick={() => navigate("/ads")} className="py-2 px-3 rounded-lg bg-surface border border-border"><Megaphone className="size-4 text-gold" /></button>
           <button className="py-2 px-3 rounded-lg bg-surface border border-border"><Users className="size-4 text-foreground" /></button>
         </div>
 
@@ -85,6 +90,12 @@ const ProfilePage = () => {
             </div>
             <span className="px-4 py-2 rounded-lg gold-gradient text-primary-foreground text-[10px] font-bold uppercase tracking-widest">Buy Coins</span>
           </div>
+        </button>
+
+        {/* Earnings quick view */}
+        <button onClick={() => navigate("/earnings")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
+          <div className="flex items-center gap-2"><TrendingUp className="size-5 text-green-400" /><span className="text-sm text-foreground">View Earnings</span></div>
+          <span className="text-xs text-gold font-semibold">→</span>
         </button>
 
         {!profile?.is_verified && (
@@ -105,14 +116,14 @@ const ProfilePage = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-[2px]">
-        {posts.map((post) => (
+        {filteredPosts.map(post => (
           <div key={post.id} className="aspect-square bg-surface overflow-hidden">
             {post.image_url ? <img src={post.image_url} className="w-full h-full object-cover" loading="lazy" /> :
               post.video_url ? <video src={post.video_url} className="w-full h-full object-cover" /> :
               <div className="w-full h-full flex items-center justify-center p-2"><p className="text-xs text-muted-foreground text-center line-clamp-3">{post.content}</p></div>}
           </div>
         ))}
-        {posts.length === 0 && (
+        {filteredPosts.length === 0 && (
           <div className="col-span-3 py-16 text-center"><p className="text-sm text-muted-foreground">No posts yet. Create your first post!</p></div>
         )}
       </div>
