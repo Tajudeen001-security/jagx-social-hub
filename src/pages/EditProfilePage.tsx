@@ -12,6 +12,7 @@ const EditProfilePage = () => {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +25,7 @@ const EditProfilePage = () => {
           setUsername(data.username || "");
           setDisplayName(data.display_name || "");
           setBio(data.bio || "");
+          setLocation(data.location || "");
         }
       });
   }, [user]);
@@ -72,7 +74,7 @@ const EditProfilePage = () => {
     if (!user) return;
     setSaving(true);
     const { error } = await supabase.from("profiles").update({
-      username, display_name: displayName, bio,
+      username, display_name: displayName, bio, location,
     }).eq("user_id", user.id);
     if (error) toast.error(error.message);
     else { toast.success("Profile updated!"); navigate("/profile"); }
@@ -133,6 +135,11 @@ const EditProfilePage = () => {
           <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Bio</label>
           <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
             className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary resize-none" placeholder="Tell the world about yourself..." />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Location</label>
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="City, Country"
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
         </div>
       </div>
     </div>
