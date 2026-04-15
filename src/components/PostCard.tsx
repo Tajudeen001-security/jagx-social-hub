@@ -215,14 +215,20 @@ const PostCard = ({
         </div>
       )}
 
-      {/* Media */}
-      <div className="relative aspect-square bg-surface overflow-hidden">
-        {videoUrl ? <video src={videoUrl} className="w-full h-full object-cover" controls playsInline preload="metadata" onDoubleClick={handleLike} /> :
-          <img src={imageUrl} alt="Post" className="w-full h-full object-cover" loading="lazy" onDoubleClick={handleLike} />}
-        <AnimatePresence>
-          {liked && <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute inset-0 flex items-center justify-center pointer-events-none"><Heart className="size-20 text-red-500 fill-red-500" /></motion.div>}
-        </AnimatePresence>
-      </div>
+      {/* Media or Text-only display */}
+      {(videoUrl || imageUrl) ? (
+        <div className="relative aspect-square bg-surface overflow-hidden">
+          {videoUrl ? <video src={videoUrl} className="w-full h-full object-cover" controls playsInline preload="metadata" onDoubleClick={handleLike} /> :
+            <img src={imageUrl} alt="Post" className="w-full h-full object-cover" loading="lazy" onDoubleClick={handleLike} />}
+          <AnimatePresence>
+            {liked && <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute inset-0 flex items-center justify-center pointer-events-none"><Heart className="size-20 text-red-500 fill-red-500" /></motion.div>}
+          </AnimatePresence>
+        </div>
+      ) : caption ? (
+        <div className="px-4 py-6 bg-gradient-to-br from-surface to-surface-elevated rounded-lg mx-2 my-1 min-h-[120px] flex items-center" onDoubleClick={handleLike}>
+          <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">{caption}</p>
+        </div>
+      ) : null}
 
       {/* Actions */}
       <div className="px-4 pt-3 flex items-center justify-between">
@@ -257,7 +263,8 @@ const PostCard = ({
       {/* Likes & Caption */}
       <div className="px-4 pt-2">
         <p className="text-sm font-semibold text-champagne">{formatCount(likeCount)} appreciations</p>
-        {!editing && <p className="text-sm mt-1"><span className="font-semibold text-champagne">{username} </span><span className="text-foreground/80">{caption}</span></p>}
+        {!editing && (videoUrl || imageUrl) && caption && <p className="text-sm mt-1"><span className="font-semibold text-champagne">{username} </span><span className="text-foreground/80">{caption}</span></p>}
+        {!editing && !(videoUrl || imageUrl) && <p className="text-sm mt-1 font-semibold text-champagne">{username}</p>}
         <button onClick={() => setShowComments(!showComments)} className="text-xs text-muted-foreground mt-1">{dbComments.length || comments} comments</button>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{timeAgo}</p>
       </div>

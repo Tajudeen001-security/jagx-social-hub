@@ -1,8 +1,12 @@
-import { ArrowLeft, TrendingUp, Coins, Gift, DollarSign } from "lucide-react";
+import { ArrowLeft, TrendingUp, Coins, Gift, DollarSign, Banknote, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+
+const COIN_TO_NAIRA = 10; // 1 JagX Coin = ₦10
+const NAIRA_TO_USD = 0.00062; // approximate
 
 const EarningsPage = () => {
   const navigate = useNavigate();
@@ -10,6 +14,10 @@ const EarningsPage = () => {
   const [earnings, setEarnings] = useState({ totalReceived: 0, totalSent: 0, platformFees: 0, netEarnings: 0 });
   const [recentGifts, setRecentGifts] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [currency, setCurrency] = useState<"coins" | "naira" | "usd">("coins");
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [bankDetails, setBankDetails] = useState({ bankName: "", accountNumber: "", accountName: "" });
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -19,9 +27,7 @@ const EarningsPage = () => {
 
   const loadEarnings = async () => {
     if (!user) return;
-    // Gifts received
     const { data: received } = await supabase.from("gifts").select("coin_amount, creator_amount, platform_fee, created_at, sender_id, gift_type").eq("recipient_id", user.id).order("created_at", { ascending: false });
-    // Gifts sent
     const { data: sent } = await supabase.from("gifts").select("coin_amount").eq("sender_id", user.id);
 
     const totalReceived = received?.reduce((sum, g) => sum + g.creator_amount, 0) || 0;
@@ -38,6 +44,34 @@ const EarningsPage = () => {
     }
   };
 
+  const convertValue = (coins: number) => {
+    if (currency === "naira") return `₦${(coins * COIN_TO_NAIRA).toLocaleString()}`;
+    if (currency === "usd") return `$${(coins * COIN_TO_NAIRA * NAIRA_TO_USD).toFixed(2)}`;
+    return `🪙 ${coins}`;
+  };
+
+  const handleWithdraw = async () => {
+    if (!user || !withdrawAmount || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    const amount = parseInt(withdrawAmount);
+    if (isNaN(amount) || amount < 100) { toast.error("Minimum withdrawal is 100 coins"); return; }
+    if (amount > (profile?.jagx_coins || 0)) { toast.error("Insufficient balance"); return; }
+
+    await supabase.from("coin_transactions").insert({
+      user_id: user.id,
+      amount,
+      transaction_type: "withdrawal",
+      status: "pending",
+      opay_reference: `WD-${Date.now()}`,
+    });
+
+    toast.success(`Withdrawal request for ${convertValue(amount)} submitted! You'll be credited to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
+    setShowWithdraw(false);
+    setWithdrawAmount("");
+  };
+
   return (
     <div className="min-h-screen pb-24 bg-background">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
@@ -48,12 +82,64 @@ const EarningsPage = () => {
       </header>
 
       <div className="p-4 space-y-4">
+        {/* Currency toggle */}
+        <div className="flex gap-2">
+          {(["coins", "naira", "usd"] as const).map(c => (
+            <button key={c} onClick={() => setCurrency(c)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest ${currency === c ? "gold-gradient text-primary-foreground" : "bg-surface border border-border/30 text-muted-foreground"}`}>
+              {c === "coins" ? "🪙 Coins" : c === "naira" ? "₦ Naira" : "$ USD"}
+            </button>
+          ))}
+        </div>
+
         {/* Balance */}
         <div className="p-4 rounded-xl glass gold-glow">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Current Balance</p>
-          <p className="text-3xl font-bold text-gold mt-1">🪙 {profile?.jagx_coins || 0}</p>
-          <p className="text-xs text-muted-foreground mt-1">JagX Coins</p>
+          <p className="text-3xl font-bold text-gold mt-1">{convertValue(profile?.jagx_coins || 0)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {currency === "coins" ? "JagX Coins" : currency === "naira" ? `🪙 ${profile?.jagx_coins || 0} coins` : `₦${((profile?.jagx_coins || 0) * COIN_TO_NAIRA).toLocaleString()}`}
+          </p>
+          <button onClick={() => setShowWithdraw(true)} className="mt-3 px-4 py-2 rounded-xl gold-gradient text-primary-foreground text-xs font-bold flex items-center gap-2">
+            <Banknote className="size-4" /> Withdraw Earnings
+          </button>
         </div>
+
+        {/* Withdraw modal */}
+        {showWithdraw && (
+          <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-surface border border-border/30 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-champagne">Withdraw Earnings</h3>
+                <button onClick={() => setShowWithdraw(false)} className="text-muted-foreground text-lg">✕</button>
+              </div>
+              <p className="text-xs text-muted-foreground">Available: {convertValue(profile?.jagx_coins || 0)}</p>
+              
+              <div className="space-y-3">
+                <input type="number" placeholder="Amount in coins (min 100)" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+                {withdrawAmount && (
+                  <p className="text-xs text-gold">≈ ₦{(parseInt(withdrawAmount || "0") * COIN_TO_NAIRA).toLocaleString()} / ${(parseInt(withdrawAmount || "0") * COIN_TO_NAIRA * NAIRA_TO_USD).toFixed(2)}</p>
+                )}
+                <input type="text" placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails(p => ({ ...p, bankName: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+                <input type="text" placeholder="Account Number" value={bankDetails.accountNumber} onChange={e => setBankDetails(p => ({ ...p, accountNumber: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+                <input type="text" placeholder="Account Name" value={bankDetails.accountName} onChange={e => setBankDetails(p => ({ ...p, accountName: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+              </div>
+
+              <div className="p-3 rounded-xl bg-background border border-border/30">
+                <p className="text-[10px] text-muted-foreground">• Minimum withdrawal: 100 coins (₦1,000)</p>
+                <p className="text-[10px] text-muted-foreground">• Processing time: 24-48 hours</p>
+                <p className="text-[10px] text-muted-foreground">• Credited via OPay to your bank account</p>
+              </div>
+
+              <button onClick={handleWithdraw} className="w-full py-3 rounded-xl gold-gradient text-primary-foreground font-bold text-sm flex items-center justify-center gap-2">
+                <CreditCard className="size-4" /> Submit Withdrawal
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
@@ -62,7 +148,7 @@ const EarningsPage = () => {
               <TrendingUp className="size-4 text-green-400" />
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Earned</span>
             </div>
-            <p className="text-lg font-bold text-champagne">🪙 {earnings.totalReceived}</p>
+            <p className="text-lg font-bold text-champagne">{convertValue(earnings.totalReceived)}</p>
             <p className="text-[10px] text-muted-foreground">After 30% platform fee</p>
           </div>
           <div className="p-3 rounded-xl bg-surface border border-border/30">
@@ -70,7 +156,7 @@ const EarningsPage = () => {
               <Gift className="size-4 text-gold" />
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sent</span>
             </div>
-            <p className="text-lg font-bold text-champagne">🪙 {earnings.totalSent}</p>
+            <p className="text-lg font-bold text-champagne">{convertValue(earnings.totalSent)}</p>
             <p className="text-[10px] text-muted-foreground">Total gifts given</p>
           </div>
           <div className="p-3 rounded-xl bg-surface border border-border/30">
@@ -78,7 +164,7 @@ const EarningsPage = () => {
               <Coins className="size-4 text-gold" />
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Platform Fees</span>
             </div>
-            <p className="text-lg font-bold text-champagne">🪙 {earnings.platformFees}</p>
+            <p className="text-lg font-bold text-champagne">{convertValue(earnings.platformFees)}</p>
             <p className="text-[10px] text-muted-foreground">30% of gross gifts</p>
           </div>
           <div className="p-3 rounded-xl bg-surface border border-border/30">
@@ -86,18 +172,28 @@ const EarningsPage = () => {
               <DollarSign className="size-4 text-green-400" />
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Earnings</span>
             </div>
-            <p className="text-lg font-bold text-champagne">🪙 {earnings.netEarnings}</p>
+            <p className="text-lg font-bold text-champagne">{convertValue(earnings.netEarnings)}</p>
             <p className="text-[10px] text-muted-foreground">70% of gross gifts</p>
           </div>
         </div>
 
-        {/* Fee breakdown */}
+        {/* Conversion rates */}
+        <div className="p-4 rounded-xl bg-surface border border-border/30">
+          <h3 className="text-sm font-semibold text-champagne mb-3">Conversion Rates</h3>
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p>• 1 JagX Coin = ₦{COIN_TO_NAIRA}</p>
+            <p>• 100 JagX Coins = ₦{(100 * COIN_TO_NAIRA).toLocaleString()} ≈ ${(100 * COIN_TO_NAIRA * NAIRA_TO_USD).toFixed(2)}</p>
+            <p>• 1,000 JagX Coins = ₦{(1000 * COIN_TO_NAIRA).toLocaleString()} ≈ ${(1000 * COIN_TO_NAIRA * NAIRA_TO_USD).toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* How it works */}
         <div className="p-4 rounded-xl bg-surface border border-border/30">
           <h3 className="text-sm font-semibold text-champagne mb-3">How Earnings Work</h3>
           <div className="space-y-2 text-xs text-muted-foreground">
             <p>• When someone sends you a gift, JagX Buddy takes a 30% platform fee</p>
             <p>• You receive 70% of the gift value</p>
-            <p>• Example: 100 coin gift → You get 70 coins, Platform gets 30 coins</p>
+            <p>• Example: 100 coin gift → You get 70 coins (₦700), Platform gets 30 coins</p>
             <p>• Earn from: Post gifts, Live stream gifts, Reel gifts</p>
           </div>
         </div>
@@ -116,8 +212,8 @@ const EarningsPage = () => {
                     <p className="text-[10px] text-muted-foreground">{g.gift_type} • {new Date(g.created_at).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-gold">+🪙 {g.creator_amount}</p>
-                    <p className="text-[10px] text-muted-foreground">of {g.coin_amount}</p>
+                    <p className="text-sm font-bold text-gold">+{convertValue(g.creator_amount)}</p>
+                    <p className="text-[10px] text-muted-foreground">of {convertValue(g.coin_amount)}</p>
                   </div>
                 </div>
               ))}
