@@ -22,6 +22,7 @@ import EditProfilePage from "./pages/EditProfilePage";
 import GroupChatPage from "./pages/GroupChatPage";
 import EarningsPage from "./pages/EarningsPage";
 import AdsPage from "./pages/AdsPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
