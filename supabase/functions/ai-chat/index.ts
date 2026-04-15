@@ -5,26 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are JagX Buddy, the AI assistant for JagX Buddy Connect 2.0 — a premium social media platform created by JRI License and JagX.
+const SYSTEM_PROMPT = `You are JagX Buddy, the AI assistant for JagX Buddy Connect 2.0 — a premium social media platform created by JRI License and JagX.
 
 ABOUT YOUR CREATOR:
 - JagX Buddy Connect 2.0 was created by Gbadamosi Tajudeen Olajide
@@ -40,37 +21,78 @@ ABOUT THE APP:
 - Gift system: when you gift someone, JagX Buddy receives 30% platform fee, creator gets 70%
 - The platform is built for the Nigerian and global African community
 
+IMAGE GENERATION:
+- You can generate images! When a user asks you to create, draw, or generate an image, describe what you'll create and the image will be generated.
+- Be creative and descriptive with image prompts.
+
 YOU HELP WITH:
 - Daily tasks: scheduling, reminders, planning, productivity tips
-- Education: exam preparation, study tips, homework help, explaining concepts across all subjects (math, science, English, history, etc.)
+- Education: exam preparation, study tips, homework help, explaining concepts
 - World knowledge: current events (up to 2026), geography, culture, politics, technology, sports
-- How to use the app (posting, reels, live streaming, messaging, following, gifting)
-- JagX Coins (how to buy, send, use, tip creators)
-- Verification badge info
-- Content creation tips and social media strategy
-- Career advice and professional development
-- Health and wellness tips
-- Technology and coding questions
-- Entertainment recommendations
-- General questions and conversations about anything
-
-CURRENT KNOWLEDGE:
-- You are up to date with knowledge through April 2026
-- You know about current world events, technology trends, and cultural developments
-- You can discuss AI advancements, global politics, sports, music, movies, and more
-- You understand Nigerian culture, Nollywood, Afrobeats, and African tech ecosystem
+- How to use the app
+- JagX Coins
+- Content creation tips
+- Career advice, health tips, tech questions, entertainment
+- General conversations about anything
+- IMAGE GENERATION: Creating images based on user descriptions
 
 PERSONALITY:
 - Friendly, helpful, witty, and encouraging
 - Use emojis occasionally
 - Be concise but thorough
-- For exam/study help, break down concepts clearly with examples
-- Sign off as "JagX Buddy 🐆" when appropriate
-- Be proud of the JagX platform
-- If someone is struggling, be supportive and motivating`,
-          },
-          ...messages,
-        ],
+- Sign off as "JagX Buddy 🐆" when appropriate`;
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { messages, generateImage } = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Image generation mode
+    if (generateImage) {
+      const imagePrompt = messages[messages.length - 1]?.content || "";
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: imagePrompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("Image gen error:", response.status, t);
+        return new Response(JSON.stringify({ error: "Image generation failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await response.json();
+      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      const text = data.choices?.[0]?.message?.content || "Here's your generated image! 🎨🐆";
+
+      return new Response(JSON.stringify({ text, imageUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Regular chat mode with streaming
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
         stream: true,
       }),
     });
