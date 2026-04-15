@@ -22,6 +22,7 @@ import EditProfilePage from "./pages/EditProfilePage";
 import GroupChatPage from "./pages/GroupChatPage";
 import EarningsPage from "./pages/EarningsPage";
 import AdsPage from "./pages/AdsPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,8 @@ const App = () => (
             <Route path="/group/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
             <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
+            <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

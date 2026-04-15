@@ -1,4 +1,4 @@
-import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin } from "lucide-react";
+import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
@@ -95,6 +95,12 @@ const ProfilePage = () => {
         {/* Earnings quick view */}
         <button onClick={() => navigate("/earnings")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
           <div className="flex items-center gap-2"><TrendingUp className="size-5 text-green-400" /><span className="text-sm text-foreground">View Earnings</span></div>
+          <span className="text-xs text-gold font-semibold">→</span>
+        </button>
+
+        {/* Admin Panel */}
+        <button onClick={() => navigate("/admin")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
+          <div className="flex items-center gap-2"><Shield className="size-5 text-gold" /><span className="text-sm text-foreground">Admin Panel</span></div>
           <span className="text-xs text-gold font-semibold">→</span>
         </button>
 
