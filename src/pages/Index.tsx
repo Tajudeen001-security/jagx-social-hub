@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import StoryCircle from "@/components/StoryCircle";
 import StoryViewer from "@/components/StoryViewer";
 import PostCard from "@/components/PostCard";
+import FeedAd from "@/components/FeedAd";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,24 +119,27 @@ const FeedPage = () => {
 
       {/* Feed */}
       <div className="space-y-2">
-        {posts.map((post) => (
-          <PostCard
-            key={post.id}
-            id={post.id}
-            username={post.username}
-            avatarUrl={post.avatarUrl}
-            imageUrl={post.image_url || ""}
-            videoUrl={post.video_url || undefined}
-            caption={post.content || ""}
-            likes={0}
-            comments={0}
-            timeAgo={new Date(post.created_at).toLocaleDateString()}
-            isVerified={post.isVerified}
-            userId={post.user_id}
-            showFollow={post.user_id !== user?.id}
-            onDelete={() => handlePostDelete(post.id)}
-            onEdit={(newContent) => handlePostEdit(post.id, newContent)}
-          />
+        {posts.map((post, index) => (
+          <div key={post.id}>
+            <PostCard
+              id={post.id}
+              username={post.username}
+              avatarUrl={post.avatarUrl}
+              imageUrl={post.image_url || ""}
+              videoUrl={post.video_url || undefined}
+              caption={post.content || ""}
+              likes={0}
+              comments={0}
+              timeAgo={new Date(post.created_at).toLocaleDateString()}
+              isVerified={post.isVerified}
+              userId={post.user_id}
+              showFollow={post.user_id !== user?.id}
+              onDelete={() => handlePostDelete(post.id)}
+              onEdit={(newContent) => handlePostEdit(post.id, newContent)}
+            />
+            {/* Show ad every 5 posts */}
+            {(index + 1) % 5 === 0 && <FeedAd />}
+          </div>
         ))}
         {posts.length === 0 && (
           <div className="py-16 text-center px-6">
