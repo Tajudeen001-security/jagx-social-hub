@@ -52,6 +52,8 @@ const App = () => (
             <Route path="/group/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
             <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
+            <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
