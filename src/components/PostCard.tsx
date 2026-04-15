@@ -263,7 +263,8 @@ const PostCard = ({
       {/* Likes & Caption */}
       <div className="px-4 pt-2">
         <p className="text-sm font-semibold text-champagne">{formatCount(likeCount)} appreciations</p>
-        {!editing && <p className="text-sm mt-1"><span className="font-semibold text-champagne">{username} </span><span className="text-foreground/80">{caption}</span></p>}
+        {!editing && (videoUrl || imageUrl) && caption && <p className="text-sm mt-1"><span className="font-semibold text-champagne">{username} </span><span className="text-foreground/80">{caption}</span></p>}
+        {!editing && !(videoUrl || imageUrl) && <p className="text-sm mt-1 font-semibold text-champagne">{username}</p>}
         <button onClick={() => setShowComments(!showComments)} className="text-xs text-muted-foreground mt-1">{dbComments.length || comments} comments</button>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{timeAgo}</p>
       </div>
