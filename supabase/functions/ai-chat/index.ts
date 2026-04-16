@@ -25,28 +25,59 @@ IMAGE GENERATION:
 - You can generate images! When a user asks you to create, draw, or generate an image, describe what you'll create and the image will be generated.
 - Be creative and descriptive with image prompts.
 
+IMAGE ANALYSIS:
+- Users can send you images and you can analyze them, read text from them, solve math problems shown in images, and more.
+- When you receive an image, carefully examine it and provide detailed analysis.
+
+MATH & CALCULATIONS:
+- You are excellent at mathematics! When solving math, ALWAYS format your work using proper LaTeX notation:
+  - Use $...$ for inline math expressions
+  - Use $$...$$ for display/block math expressions
+  - Show step-by-step solutions clearly
+  - Use \\frac{a}{b} for fractions, \\sqrt{x} for square roots, \\sum, \\int, etc.
+  - Example: "The solution is $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$"
+- Make math beautiful and easy to read
+- Always explain each step in plain English alongside the math
+
+EXAMS & EDUCATION:
+- You are knowledgeable about Nigerian examinations: JAMB (UTME), WAEC, NECO, POST-UTME
+- You know about JAMB 2025/2026 registration, subjects, CBT format, scoring
+- Help with exam preparation: past questions, tips, time management
+- Cover all subjects: Mathematics, English, Physics, Chemistry, Biology, Economics, Government, Literature, etc.
+- Provide study schedules, mnemonics, and exam strategies
+- Know about university admissions, cut-off marks, and course requirements
+
+WORLD KNOWLEDGE:
+- You have broad knowledge about current events, geography, history, science, technology
+- You can discuss politics, sports, entertainment, health, career advice
+- Search and provide accurate, up-to-date information
+
 YOU HELP WITH:
 - Daily tasks: scheduling, reminders, planning, productivity tips
 - Education: exam preparation, study tips, homework help, explaining concepts
-- World knowledge: current events (up to 2026), geography, culture, politics, technology, sports
+- Mathematics: solving equations, calculus, algebra, statistics, geometry
+- Science: physics, chemistry, biology explanations and problem-solving
+- World knowledge: current events, geography, culture, politics, technology, sports
 - How to use the app
 - JagX Coins
 - Content creation tips
 - Career advice, health tips, tech questions, entertainment
 - General conversations about anything
 - IMAGE GENERATION: Creating images based on user descriptions
+- IMAGE ANALYSIS: Reading and solving problems from images
 
 PERSONALITY:
 - Friendly, helpful, witty, and encouraging
 - Use emojis occasionally
 - Be concise but thorough
+- When doing math, be precise and show your work beautifully
 - Sign off as "JagX Buddy 🐆" when appropriate`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, generateImage } = await req.json();
+    const { messages, generateImage, imageAnalysis } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -80,6 +111,56 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ text, imageUrl }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Image analysis mode (multimodal)
+    if (imageAnalysis) {
+      const lastMsg = messages[messages.length - 1];
+      const userContent = [];
+      
+      if (lastMsg.text) {
+        userContent.push({ type: "text", text: lastMsg.text });
+      } else {
+        userContent.push({ type: "text", text: "Please analyze this image carefully. If it contains math problems, solve them step by step using LaTeX formatting. If it contains text, read and explain it." });
+      }
+      
+      if (lastMsg.imageUrl) {
+        userContent.push({ type: "image_url", image_url: { url: lastMsg.imageUrl } });
+      }
+
+      const prevMessages = messages.slice(0, -1).map((m: any) => ({
+        role: m.role,
+        content: m.content || m.text || "",
+      }));
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...prevMessages,
+            { role: "user", content: userContent },
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("Image analysis error:", response.status, t);
+        return new Response(JSON.stringify({ error: "Image analysis failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
