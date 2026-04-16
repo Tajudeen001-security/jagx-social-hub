@@ -464,6 +464,7 @@ const DirectMessagePage = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
