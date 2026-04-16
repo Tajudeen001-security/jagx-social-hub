@@ -331,6 +331,17 @@ const DirectMessagePage = () => {
   };
 
   return (
+    <>
+      {activeCall && userId && (
+        <VideoCall
+          remoteUserId={userId}
+          remoteUserName={otherUser?.display_name || otherUser?.username || "User"}
+          remoteUserAvatar={otherUser?.avatar_url}
+          callType={activeCall.type}
+          isIncoming={activeCall.isIncoming}
+          onEnd={() => setActiveCall(null)}
+        />
+      )}
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
