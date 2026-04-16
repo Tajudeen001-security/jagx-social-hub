@@ -139,6 +139,36 @@ export type Database = {
         }
         Relationships: []
       }
+      call_signals: {
+        Row: {
+          call_type: string
+          callee_id: string
+          caller_id: string
+          created_at: string
+          id: string
+          signal_data: Json | null
+          signal_type: string
+        }
+        Insert: {
+          call_type?: string
+          callee_id: string
+          caller_id: string
+          created_at?: string
+          id?: string
+          signal_data?: Json | null
+          signal_type: string
+        }
+        Update: {
+          call_type?: string
+          callee_id?: string
+          caller_id?: string
+          created_at?: string
+          id?: string
+          signal_data?: Json | null
+          signal_type?: string
+        }
+        Relationships: []
+      }
       coin_transactions: {
         Row: {
           amount: number

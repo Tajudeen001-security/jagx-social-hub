@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import VideoCall from "@/components/VideoCall";
 
 interface Message {
   id: string;
@@ -48,6 +49,7 @@ const DirectMessagePage = () => {
   const [showStickers, setShowStickers] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [touchStart, setTouchStart] = useState<{ x: number; id: string } | null>(null);
+  const [activeCall, setActiveCall] = useState<{ type: "video" | "audio"; isIncoming?: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout>();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -329,6 +331,17 @@ const DirectMessagePage = () => {
   };
 
   return (
+    <>
+      {activeCall && userId && (
+        <VideoCall
+          remoteUserId={userId}
+          remoteUserName={otherUser?.display_name || otherUser?.username || "User"}
+          remoteUserAvatar={otherUser?.avatar_url}
+          callType={activeCall.type}
+          isIncoming={activeCall.isIncoming}
+          onEnd={() => setActiveCall(null)}
+        />
+      )}
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
@@ -354,8 +367,8 @@ const DirectMessagePage = () => {
             </button>
           </div>
           <div className="flex items-center gap-3 relative">
-            <button className="text-foreground"><Phone className="size-4" /></button>
-            <button className="text-foreground"><Video className="size-4" /></button>
+            <button onClick={() => setActiveCall({ type: "audio" })} className="text-foreground"><Phone className="size-4" /></button>
+            <button onClick={() => setActiveCall({ type: "video" })} className="text-foreground"><Video className="size-4" /></button>
             <button onClick={() => setShowMenu(!showMenu)} className="text-foreground"><MoreVertical className="size-4" /></button>
             {showMenu && (
               <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-surface border border-border/30 shadow-xl overflow-hidden z-50">
@@ -451,6 +464,7 @@ const DirectMessagePage = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
