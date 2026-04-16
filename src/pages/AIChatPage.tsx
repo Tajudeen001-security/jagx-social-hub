@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ArrowLeft, Send, Bot, Image, Plus, Trash2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, Bot, Image, Plus, Trash2, MessageSquare, Mic, MicOff, Camera, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 
-type Msg = { role: "user" | "assistant"; content: string; image_url?: string };
+type Msg = { role: "user" | "assistant"; content: string; image_url?: string; user_image?: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
@@ -20,13 +23,16 @@ const AIChatPage = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Load conversations
   useEffect(() => {
     if (!user) return;
     supabase.from("ai_conversations").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).then(({ data }) => {
@@ -45,7 +51,7 @@ const AIChatPage = () => {
 
   const startNewChat = () => {
     setActiveConvoId(null);
-    setMessages([{ role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant. Ask me anything or ask me to generate an image!" }]);
+    setMessages([{ role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant!\n\n🧮 I can solve **math problems** with beautiful formatting\n📸 Send me **images** and I'll analyze them\n🎨 Ask me to **generate images**\n📚 I help with **JAMB, WAEC, NECO** exam prep\n🌍 Ask me **anything** about the world!\n\nWhat can I help you with?" }]);
     setShowSidebar(false);
   };
 
@@ -60,7 +66,7 @@ const AIChatPage = () => {
       conversation_id: convoId,
       role: msg.role,
       content: msg.content,
-      image_url: msg.image_url || null,
+      image_url: msg.image_url || msg.user_image || null,
     });
   };
 
@@ -72,8 +78,7 @@ const AIChatPage = () => {
     const newId = data.id;
     setActiveConvoId(newId);
     setConversations(prev => [{ id: newId, title, updated_at: new Date().toISOString() }, ...prev]);
-    // Save the initial greeting
-    await saveMessage(newId, { role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant. Ask me anything or ask me to generate an image!" });
+    await saveMessage(newId, { role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant!" });
     return newId;
   };
 
@@ -82,21 +87,90 @@ const AIChatPage = () => {
     return keywords.some(k => text.toLowerCase().includes(k));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const streamResponse = async (resp: Response): Promise<string> => {
+    if (!resp.body) throw new Error("No response body");
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let assistantSoFar = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") break;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) {
+            assistantSoFar += content;
+            const current = assistantSoFar;
+            setMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && prev.length > 1 && prev[prev.length - 2]?.role === "user") {
+                return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: current } : m));
+              }
+              return [...prev, { role: "assistant", content: current }];
+            });
+          }
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
+    return assistantSoFar;
+  };
+
   const send = async () => {
-    if (!input.trim() || isLoading || !user) return;
-    const userMsg: Msg = { role: "user", content: input.trim() };
+    const text = input.trim();
+    if ((!text && !pendingImage) || isLoading || !user) return;
+    
+    const userMsg: Msg = { role: "user", content: text || "📷 [Image sent for analysis]", user_image: pendingImage || undefined };
     setInput("");
+    const sentImage = pendingImage;
+    setPendingImage(null);
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
       const convoId = await getOrCreateConvo(userMsg.content);
       await saveMessage(convoId, userMsg);
+      const allMsgs = [...messages, userMsg].filter(m => m.role !== "assistant" || !m.image_url);
 
-      const allMsgs = [...messages, userMsg].filter(m => !m.image_url);
-
-      if (isImageRequest(userMsg.content)) {
-        // Image generation
+      if (sentImage) {
+        // Image analysis mode
+        const resp = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [...allMsgs.slice(0, -1).map(m => ({ role: m.role, content: m.content })), { text: text || "Analyze this image", imageUrl: sentImage }],
+            imageAnalysis: true,
+          }),
+        });
+        if (!resp.ok) throw new Error("Image analysis failed");
+        const result = await streamResponse(resp);
+        if (result) await saveMessage(convoId, { role: "assistant", content: result });
+      } else if (isImageRequest(text)) {
         const resp = await fetch(CHAT_URL, {
           method: "POST",
           headers: {
@@ -105,7 +179,6 @@ const AIChatPage = () => {
           },
           body: JSON.stringify({ messages: allMsgs.map(m => ({ role: m.role, content: m.content })), generateImage: true }),
         });
-
         if (!resp.ok) throw new Error("Image generation failed");
         const data = await resp.json();
         const assistantMsg: Msg = { role: "assistant", content: data.text || "Here's your image! 🎨🐆", image_url: data.imageUrl };
@@ -121,54 +194,11 @@ const AIChatPage = () => {
           },
           body: JSON.stringify({ messages: allMsgs.map(m => ({ role: m.role, content: m.content })) }),
         });
-
         if (!resp.ok || !resp.body) throw new Error("AI request failed");
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let textBuffer = "";
-        let assistantSoFar = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          textBuffer += decoder.decode(value, { stream: true });
-          let newlineIndex: number;
-          while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-            let line = textBuffer.slice(0, newlineIndex);
-            textBuffer = textBuffer.slice(newlineIndex + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (line.startsWith(":") || line.trim() === "") continue;
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-              if (content) {
-                assistantSoFar += content;
-                const current = assistantSoFar;
-                setMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant" && prev.length > 1 && prev[prev.length - 2]?.role === "user") {
-                    return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: current } : m));
-                  }
-                  return [...prev, { role: "assistant", content: current }];
-                });
-              }
-            } catch {
-              textBuffer = line + "\n" + textBuffer;
-              break;
-            }
-          }
-        }
-        // Save final assistant message
-        if (assistantSoFar) {
-          await saveMessage(convoId, { role: "assistant", content: assistantSoFar });
-        }
+        const result = await streamResponse(resp);
+        if (result) await saveMessage(convoId, { role: "assistant", content: result });
       }
 
-      // Update conversation timestamp
       await supabase.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convoId);
     } catch (e: any) {
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I'm having trouble connecting right now. Please try again! 🐆" }]);
@@ -178,9 +208,7 @@ const AIChatPage = () => {
     }
   };
 
-  useEffect(() => {
-    startNewChat();
-  }, []);
+  useEffect(() => { startNewChat(); }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -198,12 +226,8 @@ const AIChatPage = () => {
             <div className="flex-1 overflow-y-auto px-3 space-y-1">
               {conversations.map(c => (
                 <div key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors ${activeConvoId === c.id ? "bg-surface-elevated text-champagne" : "text-muted-foreground hover:bg-surface"}`}>
-                  <button onClick={() => loadConversation(c.id)} className="flex-1 text-left truncate">
-                    {c.title}
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }} className="text-muted-foreground hover:text-red-400">
-                    <Trash2 className="size-3" />
-                  </button>
+                  <button onClick={() => loadConversation(c.id)} className="flex-1 text-left truncate">{c.title}</button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }} className="text-muted-foreground hover:text-red-400"><Trash2 className="size-3" /></button>
                 </div>
               ))}
             </div>
@@ -221,28 +245,36 @@ const AIChatPage = () => {
           </div>
           <div className="flex-1">
             <h1 className="text-sm font-semibold text-champagne">JagX Buddy</h1>
-            <p className="text-[10px] text-muted-foreground">AI Assistant • Image Generation</p>
+            <p className="text-[10px] text-muted-foreground">AI • Math • Images • Exams</p>
           </div>
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 pb-20">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 pb-32">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm ${
+            <div className={`max-w-[88%] rounded-2xl text-sm ${
               msg.role === "user"
-                ? "gold-gradient text-primary-foreground rounded-br-md"
-                : "bg-surface border border-border/30 text-foreground rounded-bl-md"
+                ? "gold-gradient text-primary-foreground rounded-br-md px-4 py-2.5"
+                : "bg-surface border border-border/30 text-foreground rounded-bl-md px-4 py-3"
             }`}>
               {msg.role === "assistant" ? (
-                <div className="prose prose-sm prose-invert max-w-none">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <div className="prose prose-sm prose-invert max-w-none [&_table]:text-xs [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_code]:text-gold [&_.katex]:text-foreground [&_.katex-display]:overflow-x-auto [&_.katex-display]:py-2">
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    {msg.content}
+                  </ReactMarkdown>
                   {msg.image_url && (
                     <img src={msg.image_url} alt="Generated" className="mt-2 rounded-lg max-w-full" />
                   )}
                 </div>
               ) : (
-                msg.content
+                <div>
+                  {msg.user_image && (
+                    <img src={msg.user_image} alt="Sent" className="max-w-[200px] rounded-lg mb-2" />
+                  )}
+                  {msg.content !== "📷 [Image sent for analysis]" && msg.content}
+                  {msg.content === "📷 [Image sent for analysis]" && <span>📷 Image sent for analysis</span>}
+                </div>
               )}
             </div>
           </div>
@@ -260,18 +292,31 @@ const AIChatPage = () => {
         )}
       </div>
 
+      {/* Pending image preview */}
+      {pendingImage && (
+        <div className="fixed bottom-20 left-3 right-3 p-2 bg-surface border border-border/30 rounded-xl flex items-center gap-2">
+          <img src={pendingImage} alt="Preview" className="size-16 rounded-lg object-cover" />
+          <span className="text-xs text-muted-foreground flex-1">Image ready to send</span>
+          <button onClick={() => setPendingImage(null)} className="text-muted-foreground"><X className="size-4" /></button>
+        </div>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/80 backdrop-blur-xl border-t border-border/30">
         <div className="flex items-center gap-2">
+          <button onClick={() => fileRef.current?.click()} className="text-muted-foreground shrink-0">
+            <Camera className="size-5" />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           <input
             type="text"
-            placeholder="Ask JagX Buddy or 'generate image of...'"
+            placeholder={pendingImage ? "Add a message about this image..." : "Ask anything, math, exams..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
             className="flex-1 px-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
-          <button onClick={send} disabled={isLoading || !input.trim()}
-            className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground disabled:opacity-50">
+          <button onClick={send} disabled={isLoading || (!input.trim() && !pendingImage)}
+            className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground disabled:opacity-50 shrink-0">
             <Send className="size-4" />
           </button>
         </div>

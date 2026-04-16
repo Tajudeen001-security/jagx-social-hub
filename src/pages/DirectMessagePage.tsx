@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ArrowLeft, Send, Phone, Video, MoreVertical, Image, Trash2, Edit3, X, Check, Camera } from "lucide-react";
+import { ArrowLeft, Send, Phone, Video, MoreVertical, Image, Trash2, Edit3, X, Check, Camera, Mic, MicOff, Download, Reply, Smile } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +29,8 @@ interface Presence {
   is_typing: boolean;
 }
 
+const STICKERS = ["🐆", "🔥", "💎", "👑", "💰", "🎉", "❤️", "😂", "😍", "🙏", "💪", "🎯", "⭐", "🌟", "💫", "🤑", "😎", "🥳", "💜", "🖤"];
+
 const DirectMessagePage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
@@ -41,9 +43,16 @@ const DirectMessagePage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [selectedMsg, setSelectedMsg] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [fullImage, setFullImage] = useState<string | null>(null);
+  const [showStickers, setShowStickers] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [touchStart, setTouchStart] = useState<{ x: number; id: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout>();
   const fileRef = useRef<HTMLInputElement>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -112,7 +121,15 @@ const DirectMessagePage = () => {
     const msgContent = content || input.trim();
     if (!msgContent || !user || !userId) return;
     if (!content) setInput("");
-    const { error } = await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: msgContent, message_type: type || "text" });
+    
+    let finalContent = msgContent;
+    if (replyTo) {
+      const replyPreview = replyTo.content.length > 50 ? replyTo.content.slice(0, 50) + "..." : replyTo.content;
+      finalContent = `┃ ${replyTo.sender_id === user.id ? "You" : otherUser?.username || "User"}: ${replyPreview}\n\n${msgContent}`;
+      setReplyTo(null);
+    }
+    
+    const { error } = await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: finalContent, message_type: type || "text" });
     if (error) toast.error("Failed to send message");
     supabase.from("user_presence").upsert({ user_id: user.id, is_typing: false, typing_to: null, is_online: true, last_seen: new Date().toISOString() }, { onConflict: "user_id" });
   };
@@ -127,6 +144,35 @@ const DirectMessagePage = () => {
     const { data: { publicUrl } } = supabase.storage.from("posts").getPublicUrl(path);
     const type = file.type.startsWith("video") ? "video" : "image";
     await sendMessage(publicUrl, type);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunks.current = [];
+      recorder.ondataavailable = (e) => audioChunks.current.push(e.data);
+      recorder.onstop = async () => {
+        const blob = new Blob(audioChunks.current, { type: "audio/webm" });
+        stream.getTracks().forEach(t => t.stop());
+        if (!user) return;
+        const path = `${user.id}/${Date.now()}.webm`;
+        const { error } = await supabase.storage.from("posts").upload(path, blob);
+        if (error) { toast.error("Upload failed"); return; }
+        const { data: { publicUrl } } = supabase.storage.from("posts").getPublicUrl(path);
+        await sendMessage(publicUrl, "audio");
+      };
+      recorder.start();
+      mediaRecorder.current = recorder;
+      setIsRecording(true);
+    } catch {
+      toast.error("Microphone access denied");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorder.current?.stop();
+    setIsRecording(false);
   };
 
   const deleteMessage = async (msgId: string) => {
@@ -155,6 +201,27 @@ const DirectMessagePage = () => {
     else { toast.success("User blocked"); navigate("/chat"); }
   };
 
+  const handleTouchStart = (e: React.TouchEvent, msg: Message) => {
+    setTouchStart({ x: e.touches[0].clientX, id: msg.id });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, msg: Message) => {
+    if (!touchStart || touchStart.id !== msg.id) return;
+    const diff = e.changedTouches[0].clientX - touchStart.x;
+    if (Math.abs(diff) > 60) {
+      setReplyTo(msg);
+    }
+    setTouchStart(null);
+  };
+
+  const saveImage = (url: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "image.jpg";
+    a.target = "_blank";
+    a.click();
+  };
+
   const formatLastSeen = (date: string) => {
     const d = new Date(date);
     const diff = Math.floor((Date.now() - d.getTime()) / 60000);
@@ -174,6 +241,21 @@ const DirectMessagePage = () => {
   const renderMessage = (msg: Message) => {
     const isMine = msg.sender_id === user?.id;
     const isEditing = editingId === msg.id;
+    const isImage = msg.message_type === "image";
+    const isVideo = msg.message_type === "video";
+    const isAudio = msg.message_type === "audio";
+    const isSticker = msg.message_type === "sticker";
+    const isForwardedPost = msg.content.startsWith("https://") && msg.content.includes("/posts/");
+
+    // Parse reply
+    const hasReply = msg.content.startsWith("┃ ");
+    let replyText = "";
+    let actualContent = msg.content;
+    if (hasReply && msg.message_type === "text") {
+      const parts = msg.content.split("\n\n");
+      replyText = parts[0];
+      actualContent = parts.slice(1).join("\n\n");
+    }
 
     if (isEditing) {
       return (
@@ -186,34 +268,60 @@ const DirectMessagePage = () => {
       );
     }
 
-    const isImage = msg.message_type === "image";
-    const isVideo = msg.message_type === "video";
-
     return (
-      <div className="relative group" onClick={() => isMine && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}>
+      <div
+        className="relative group"
+        onTouchStart={(e) => handleTouchStart(e, msg)}
+        onTouchEnd={(e) => handleTouchEnd(e, msg)}
+        onClick={() => isMine && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
+      >
         <div className={`max-w-[80%] rounded-2xl text-sm ${
+          isSticker ? "bg-transparent text-4xl p-2" :
           isMine ? "gold-gradient text-primary-foreground rounded-br-md" : "bg-surface border border-border/30 text-foreground rounded-bl-md"
-        } ${isImage || isVideo ? "p-1" : "px-4 py-2.5"}`}>
-          {isImage ? (
-            <img src={msg.content} className="max-w-[250px] rounded-xl" loading="lazy" />
+        } ${(isImage || isVideo) ? "p-1" : isSticker ? "" : "px-4 py-2.5"}`}>
+          {/* Reply preview */}
+          {hasReply && !isSticker && (
+            <div className={`text-[10px] mb-1.5 pl-2 border-l-2 ${isMine ? "border-primary-foreground/40 text-primary-foreground/70" : "border-gold/40 text-gold/70"}`}>
+              {replyText.replace("┃ ", "")}
+            </div>
+          )}
+
+          {isSticker ? (
+            <span className="text-4xl">{msg.content}</span>
+          ) : isImage ? (
+            <button onClick={(e) => { e.stopPropagation(); setFullImage(msg.content); }}>
+              <img src={msg.content} className="max-w-[250px] rounded-xl" loading="lazy" />
+            </button>
           ) : isVideo ? (
             <video src={msg.content} className="max-w-[250px] rounded-xl" controls playsInline preload="metadata" />
+          ) : isAudio ? (
+            <audio src={msg.content} controls className="max-w-[220px]" />
           ) : (
-            msg.content
+            <span>{hasReply ? actualContent : msg.content}</span>
           )}
-          <div className={`text-[9px] mt-1 ${isImage || isVideo ? "px-2 pb-1" : ""} ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-            {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            {isMine && <span className="ml-1">{msg.is_read ? "✓✓" : "✓"}</span>}
-          </div>
+
+          {!isSticker && (
+            <div className={`text-[9px] mt-1 ${(isImage || isVideo) ? "px-2 pb-1" : ""} ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+              {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {isMine && <span className="ml-1">{msg.is_read ? "✓✓" : "✓"}</span>}
+            </div>
+          )}
         </div>
 
-        {/* Message actions */}
         {selectedMsg === msg.id && isMine && (
           <div className="absolute bottom-full mb-1 right-0 flex gap-1 bg-surface border border-border/30 rounded-lg p-1 shadow-xl z-10">
+            <button onClick={() => setReplyTo(msg)} className="p-1.5 rounded hover:bg-surface-elevated"><Reply className="size-3 text-foreground" /></button>
             {msg.message_type === "text" && (
               <button onClick={() => startEdit(msg)} className="p-1.5 rounded hover:bg-surface-elevated"><Edit3 className="size-3 text-foreground" /></button>
             )}
             <button onClick={() => deleteMessage(msg.id)} className="p-1.5 rounded hover:bg-surface-elevated"><Trash2 className="size-3 text-red-400" /></button>
+          </div>
+        )}
+
+        {/* Reply action for other user's messages */}
+        {!isMine && selectedMsg === msg.id && (
+          <div className="absolute bottom-full mb-1 left-0 flex gap-1 bg-surface border border-border/30 rounded-lg p-1 shadow-xl z-10">
+            <button onClick={() => { setReplyTo(msg); setSelectedMsg(null); }} className="p-1.5 rounded hover:bg-surface-elevated"><Reply className="size-3 text-foreground" /></button>
           </div>
         )}
       </div>
@@ -259,9 +367,13 @@ const DirectMessagePage = () => {
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 pb-20">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 pb-28">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
+          <div
+            key={msg.id}
+            className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}
+            onClick={() => msg.sender_id !== user?.id && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
+          >
             {renderMessage(msg)}
           </div>
         ))}
@@ -278,10 +390,41 @@ const DirectMessagePage = () => {
         )}
       </div>
 
+      {/* Reply bar */}
+      {replyTo && (
+        <div className="fixed bottom-16 left-0 right-0 px-3 py-2 bg-surface/90 backdrop-blur border-t border-border/30 flex items-center gap-2">
+          <div className="flex-1 text-xs text-muted-foreground border-l-2 border-gold pl-2 line-clamp-1">
+            Replying to <span className="text-gold">{replyTo.sender_id === user?.id ? "yourself" : otherUser?.username}</span>: {replyTo.content.slice(0, 60)}
+          </div>
+          <button onClick={() => setReplyTo(null)}><X className="size-4 text-muted-foreground" /></button>
+        </div>
+      )}
+
+      {/* Stickers */}
+      {showStickers && (
+        <div className="fixed bottom-16 left-0 right-0 p-3 bg-surface border-t border-border/30 grid grid-cols-10 gap-2 max-h-32 overflow-y-auto">
+          {STICKERS.map(s => (
+            <button key={s} onClick={() => { sendMessage(s, "sticker"); setShowStickers(false); }} className="text-2xl hover:scale-125 transition-transform">{s}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Full image viewer */}
+      {fullImage && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center" onClick={() => setFullImage(null)}>
+          <div className="absolute top-4 right-4 flex gap-3 z-10">
+            <button onClick={(e) => { e.stopPropagation(); saveImage(fullImage); }} className="p-2 rounded-full bg-white/10"><Download className="size-5 text-white" /></button>
+            <button onClick={() => setFullImage(null)} className="p-2 rounded-full bg-white/10"><X className="size-5 text-white" /></button>
+          </div>
+          <img src={fullImage} className="max-w-full max-h-[85vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/80 backdrop-blur-xl border-t border-border/30">
         <div className="flex items-center gap-2">
-          <button onClick={() => fileRef.current?.click()} className="text-muted-foreground"><Image className="size-5" /></button>
+          <button onClick={() => fileRef.current?.click()} className="text-muted-foreground shrink-0"><Image className="size-5" /></button>
           <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleMediaSend} className="hidden" />
+          <button onClick={() => setShowStickers(!showStickers)} className="text-muted-foreground shrink-0"><Smile className="size-5" /></button>
           <input
             type="text"
             placeholder="Type a message..."
@@ -290,9 +433,21 @@ const DirectMessagePage = () => {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             className="flex-1 px-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
-          <button onClick={() => sendMessage()} disabled={!input.trim()} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground disabled:opacity-50">
-            <Send className="size-4" />
-          </button>
+          {input.trim() ? (
+            <button onClick={() => sendMessage()} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground shrink-0">
+              <Send className="size-4" />
+            </button>
+          ) : (
+            <button
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+              className={`size-11 rounded-xl flex items-center justify-center shrink-0 ${isRecording ? "bg-red-500" : "gold-gradient"} text-primary-foreground`}
+            >
+              {isRecording ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+            </button>
+          )}
         </div>
       </div>
     </div>
