@@ -241,6 +241,50 @@ const AdminPage = () => {
             {transactions.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No withdrawal requests</p>}
           </div>
         )}
+
+        {tab === "ledger" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Gross</p>
+                <p className="text-sm font-bold text-foreground">🪙 {totals.gross.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Creators (70%)</p>
+                <p className="text-sm font-bold text-gold">🪙 {totals.creator.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Platform (30%)</p>
+                <p className="text-sm font-bold text-foreground">🪙 {totals.platform.toLocaleString()}</p>
+              </div>
+            </div>
+            <button onClick={exportLedgerCsv} className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+              <Download className="size-4" /> Download CSV Report
+            </button>
+            <p className="text-xs text-muted-foreground">{ledger.length} gift entries</p>
+            <div className="space-y-2">
+              {ledger.map((g) => (
+                <div key={g.gift_id} className="p-3 rounded-xl bg-surface border border-border/30">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-foreground">
+                      <span className="text-muted-foreground">@{g.sender_username || g.sender_id?.slice(0,6)}</span>
+                      <span className="mx-1 text-muted-foreground">→</span>
+                      <span className="font-semibold">@{g.recipient_username || g.recipient_id?.slice(0,6)}</span>
+                    </p>
+                    <span className="text-[10px] uppercase font-bold text-gold">{g.gift_type}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[11px]">
+                    <span className="text-foreground">Debit 🪙{g.debit_amount}</span>
+                    <span className="text-gold">Credit 🪙{g.credit_amount}</span>
+                    <span className="text-muted-foreground">Fee 🪙{g.platform_fee}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(g.created_at).toLocaleString()}</p>
+                </div>
+              ))}
+              {ledger.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No gifts recorded yet</p>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
