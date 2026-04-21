@@ -14,10 +14,23 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const room = String(body?.room || "").trim();
-    const role = body?.role === "publisher" ? "publisher" : "viewer";
+    let role: "publisher" | "viewer" = body?.role === "publisher" ? "publisher" : "viewer";
     const identity = String(body?.identity || user.id);
     const name = String(body?.name || "user");
     if (!room) return new Response(JSON.stringify({ error: "room required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    // Auto-promote accepted co-hosts to publisher. Room name pattern: "stream-<liveStreamId>"
+    if (role === "viewer" && room.startsWith("stream-")) {
+      const liveStreamId = room.slice("stream-".length);
+      const { data: invite } = await supabase
+        .from("live_co_hosts")
+        .select("status")
+        .eq("live_stream_id", liveStreamId)
+        .eq("co_host_id", user.id)
+        .eq("status", "accepted")
+        .maybeSingle();
+      if (invite) role = "publisher";
+    }
 
     const apiKey = Deno.env.get("LIVEKIT_API_KEY")!;
     const apiSecret = Deno.env.get("LIVEKIT_API_SECRET")!;

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import IncomingCallModal from "@/components/IncomingCallModal";
 import VideoCall from "@/components/VideoCall";
+import CoHostNotice from "@/components/CoHostNotice";
 import Index from "./pages/Index";
 import ReelsPage from "./pages/ReelsPage";
 import ChatPage from "./pages/ChatPage";
@@ -53,6 +54,7 @@ const AppContent = () => {
         })}
         onReject={() => {}}
       />
+      <CoHostNotice />
       {activeCall && (
         <VideoCall
           remoteUserId={activeCall.remoteUserId}

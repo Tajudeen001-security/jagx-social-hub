@@ -3,17 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, Ban, CheckCircle, XCircle, ArrowLeft, Search } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt } from "lucide-react";
 
 const AdminPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"users" | "verification" | "transactions">("users");
+  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger">("users");
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -39,15 +40,44 @@ const AdminPage = () => {
   };
 
   const loadData = async () => {
-    const [profilesRes, verificationsRes, transactionsRes] = await Promise.all([
+    const [profilesRes, verificationsRes, transactionsRes, ledgerRes] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("verification_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("coin_transactions").select("*").eq("transaction_type", "withdrawal").order("created_at", { ascending: false }),
+      supabase.from("gift_ledger" as any).select("*").order("created_at", { ascending: false }).limit(1000),
     ]);
     if (profilesRes.data) setUsers(profilesRes.data);
     if (verificationsRes.data) setVerifications(verificationsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (ledgerRes.data) setLedger(ledgerRes.data as any[]);
   };
+
+  const exportLedgerCsv = () => {
+    if (ledger.length === 0) { toast.error("Nothing to export"); return; }
+    const headers = ["created_at","gift_id","sender_username","recipient_username","debit_amount","creator_credit","platform_fee","gift_type","live_stream_id","post_id"];
+    const rows = ledger.map(g => [
+      g.created_at, g.gift_id,
+      g.sender_username || g.sender_id, g.recipient_username || g.recipient_id,
+      g.debit_amount, g.credit_amount, g.platform_fee,
+      g.gift_type, g.live_stream_id || "", g.post_id || "",
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `jagx-gift-ledger-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast.success("Ledger exported");
+  };
+
+  const totals = ledger.reduce(
+    (acc, g) => ({
+      gross: acc.gross + (g.debit_amount || 0),
+      creator: acc.creator + (g.credit_amount || 0),
+      platform: acc.platform + (g.platform_fee || 0),
+    }),
+    { gross: 0, creator: 0, platform: 0 }
+  );
 
   const toggleVerification = async (userId: string, currentStatus: boolean) => {
     const { error } = await supabase.from("profiles").update({ is_verified: !currentStatus }).eq("user_id", userId);
@@ -106,6 +136,7 @@ const AdminPage = () => {
           { key: "users", icon: Users, label: "Users" },
           { key: "verification", icon: BadgeCheck, label: "Verify" },
           { key: "transactions", icon: Coins, label: "Withdrawals" },
+          { key: "ledger", icon: Receipt, label: "Ledger" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${tab === t.key ? "text-gold border-b-2 border-gold" : "text-muted-foreground"}`}>
@@ -208,6 +239,50 @@ const AdminPage = () => {
               </div>
             ))}
             {transactions.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No withdrawal requests</p>}
+          </div>
+        )}
+
+        {tab === "ledger" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Gross</p>
+                <p className="text-sm font-bold text-foreground">🪙 {totals.gross.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Creators (70%)</p>
+                <p className="text-sm font-bold text-gold">🪙 {totals.creator.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-border/30">
+                <p className="text-[10px] uppercase text-muted-foreground">Platform (30%)</p>
+                <p className="text-sm font-bold text-foreground">🪙 {totals.platform.toLocaleString()}</p>
+              </div>
+            </div>
+            <button onClick={exportLedgerCsv} className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+              <Download className="size-4" /> Download CSV Report
+            </button>
+            <p className="text-xs text-muted-foreground">{ledger.length} gift entries</p>
+            <div className="space-y-2">
+              {ledger.map((g) => (
+                <div key={g.gift_id} className="p-3 rounded-xl bg-surface border border-border/30">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-foreground">
+                      <span className="text-muted-foreground">@{g.sender_username || g.sender_id?.slice(0,6)}</span>
+                      <span className="mx-1 text-muted-foreground">→</span>
+                      <span className="font-semibold">@{g.recipient_username || g.recipient_id?.slice(0,6)}</span>
+                    </p>
+                    <span className="text-[10px] uppercase font-bold text-gold">{g.gift_type}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[11px]">
+                    <span className="text-foreground">Debit 🪙{g.debit_amount}</span>
+                    <span className="text-gold">Credit 🪙{g.credit_amount}</span>
+                    <span className="text-muted-foreground">Fee 🪙{g.platform_fee}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(g.created_at).toLocaleString()}</p>
+                </div>
+              ))}
+              {ledger.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No gifts recorded yet</p>}
+            </div>
           </div>
         )}
       </div>
