@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Radio, Users, Eye, Coins, Send, X } from "lucide-react";
+import { ArrowLeft, Radio, Eye, Coins, Send, X, MonitorUp, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
-import LiveRoom from "@/components/LiveRoom";
+import LiveRoom, { type LiveRoomHandle, type StreamQuality } from "@/components/LiveRoom";
+import LiveClipRecorder from "@/components/LiveClipRecorder";
+import CoHostInvite from "@/components/CoHostInvite";
+import QualitySwitcher from "@/components/QualitySwitcher";
 
 const LivePage = () => {
   const navigate = useNavigate();
@@ -22,6 +25,11 @@ const LivePage = () => {
   const [myStream, setMyStream] = useState<any>(null);
   const chatChannelRef = useRef<any>(null);
   const viewerCountedRef = useRef(false);
+  const liveRoomRef = useRef<LiveRoomHandle>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<MediaStreamTrack | null>(null);
+  const [quality, setQuality] = useState<StreamQuality>("auto");
+  const [showInvite, setShowInvite] = useState(false);
+  const [screenSharing, setScreenSharing] = useState(false);
 
   const coinOptions = [10, 50, 100, 500, 1000];
 
@@ -113,14 +121,18 @@ const LivePage = () => {
   };
 
   if (activeStream) {
+    const isPublisher = !!(myStream && myStream.id === activeStream.id);
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <div className="relative aspect-video bg-surface">
           <LiveRoom
+            ref={liveRoomRef}
             roomName={`stream-${activeStream.id}`}
-            role={myStream && myStream.id === activeStream.id ? "publisher" : "viewer"}
+            role={isPublisher ? "publisher" : "viewer"}
             identity={user?.id || `guest-${Math.random().toString(36).slice(2, 9)}`}
             displayName={user?.email?.split("@")[0] || "viewer"}
+            quality={quality}
+            onLocalVideoTrack={setLocalVideoTrack}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/40 pointer-events-none" />
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-3">
@@ -133,6 +145,7 @@ const LivePage = () => {
               <div className="px-2 py-1 rounded-full glass flex items-center gap-1.5">
                 <Eye className="size-3" /><span className="text-[10px] font-bold">{activeStream.viewer_count || 0}</span>
               </div>
+              {!isPublisher && <QualitySwitcher value={quality} onChange={setQuality} />}
             </div>
           </div>
           <div className="absolute bottom-3 left-3 flex items-center gap-2">
@@ -146,8 +159,20 @@ const LivePage = () => {
               <p className="text-[10px] text-muted-foreground">{activeStream.title}</p>
             </div>
           </div>
-          {myStream && (
-            <button onClick={endStream} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-destructive text-foreground text-xs font-bold">End Stream</button>
+          {isPublisher && (
+            <div className="absolute bottom-3 right-3 flex items-center gap-2">
+              <LiveClipRecorder videoTrack={localVideoTrack} liveStreamId={activeStream.id} />
+              <button
+                onClick={async () => { const on = await liveRoomRef.current?.toggleScreenShare(); setScreenSharing(!!on); }}
+                className={`h-9 px-3 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 border ${screenSharing ? "gold-gradient border-primary text-primary-foreground" : "bg-surface border-border text-gold"}`}
+              >
+                <MonitorUp className="size-3.5" /> {screenSharing ? "Stop" : "Share"}
+              </button>
+              <button onClick={() => setShowInvite(true)} className="h-9 px-3 rounded-xl bg-surface border border-border text-gold text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <UserPlus className="size-3.5" /> Co-Host
+              </button>
+              <button onClick={endStream} className="h-9 px-3 rounded-lg bg-destructive text-foreground text-[10px] font-bold uppercase tracking-widest">End</button>
+            </div>
           )}
         </div>
 
@@ -188,6 +213,9 @@ const LivePage = () => {
             <button onClick={sendMessage} className="shrink-0 size-10 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground"><Send className="size-4" /></button>
           </div>
         </div>
+        {showInvite && isPublisher && (
+          <CoHostInvite liveStreamId={activeStream.id} hostId={user!.id} onClose={() => setShowInvite(false)} />
+        )}
       </div>
     );
   }
