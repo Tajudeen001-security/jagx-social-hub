@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Radio, Users, Eye, Coins, Send, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
+import LiveRoom from "@/components/LiveRoom";
 
 const LivePage = () => {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ const LivePage = () => {
   const [showGoLive, setShowGoLive] = useState(false);
   const [liveTitle, setLiveTitle] = useState("");
   const [myStream, setMyStream] = useState<any>(null);
+  const chatChannelRef = useRef<any>(null);
+  const viewerCountedRef = useRef(false);
 
   const coinOptions = [10, 50, 100, 500, 1000];
 
@@ -62,13 +65,40 @@ const LivePage = () => {
     setChatMessages([
       { user: "system", text: `Welcome to ${stream.username}'s stream!`, coins: 0 },
     ]);
-    // Increment viewer count
-    await supabase.from("live_streams").update({ viewer_count: (stream.viewer_count || 0) + 1 }).eq("id", stream.id);
+    if (!viewerCountedRef.current && (!user || stream.user_id !== user.id)) {
+      viewerCountedRef.current = true;
+      await supabase.from("live_streams").update({ viewer_count: (stream.viewer_count || 0) + 1 }).eq("id", stream.id);
+    }
   };
+
+  // Real-time chat & gift broadcast via Supabase channel
+  useEffect(() => {
+    if (!activeStream) return;
+    const ch = supabase.channel(`live-room-${activeStream.id}`, { config: { broadcast: { self: false } } })
+      .on("broadcast", { event: "chat" }, (payload) => {
+        setChatMessages(prev => [...prev, payload.payload]);
+      })
+      .subscribe();
+    chatChannelRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      chatChannelRef.current = null;
+      // Decrement viewer count on leave
+      if (viewerCountedRef.current && activeStream && (!user || activeStream.user_id !== user.id)) {
+        supabase.from("live_streams").select("viewer_count").eq("id", activeStream.id).single().then(({ data }) => {
+          const next = Math.max(0, (data?.viewer_count || 1) - 1);
+          supabase.from("live_streams").update({ viewer_count: next }).eq("id", activeStream.id);
+        });
+        viewerCountedRef.current = false;
+      }
+    };
+  }, [activeStream?.id]);
 
   const sendMessage = () => {
     if (!chatMessage.trim()) return;
-    setChatMessages(prev => [...prev, { user: "you", text: chatMessage, coins: coinAmount || 0 }]);
+    const msg = { user: "you", displayName: user?.email?.split("@")[0] || "viewer", text: chatMessage, coins: coinAmount || 0 };
+    setChatMessages(prev => [...prev, msg]);
+    chatChannelRef.current?.send({ type: "broadcast", event: "chat", payload: { ...msg, user: msg.displayName } });
     // If sending coins, create a gift
     if (coinAmount && activeStream && user && activeStream.user_id !== user.id) {
       supabase.from("gifts").insert({
