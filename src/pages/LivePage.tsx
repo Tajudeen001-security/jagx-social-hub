@@ -116,14 +116,13 @@ const LivePage = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <div className="relative aspect-video bg-surface">
-          {activeStream.thumbnail_url ? (
-            <img src={activeStream.thumbnail_url} alt="Stream" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-background">
-              <Radio className="size-16 text-gold animate-pulse" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/40" />
+          <LiveRoom
+            roomName={`stream-${activeStream.id}`}
+            role={myStream && myStream.id === activeStream.id ? "publisher" : "viewer"}
+            identity={user?.id || `guest-${Math.random().toString(36).slice(2, 9)}`}
+            displayName={user?.email?.split("@")[0] || "viewer"}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/40 pointer-events-none" />
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-3">
             <button onClick={() => { setActiveStream(null); if (myStream) endStream(); }} className="text-foreground"><ArrowLeft className="size-5" /></button>
             <div className="flex items-center gap-2">
