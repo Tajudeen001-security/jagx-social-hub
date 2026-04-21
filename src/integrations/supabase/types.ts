@@ -454,6 +454,44 @@ export type Database = {
           },
         ]
       }
+      live_co_hosts: {
+        Row: {
+          co_host_id: string
+          created_at: string
+          host_id: string
+          id: string
+          live_stream_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          co_host_id: string
+          created_at?: string
+          host_id: string
+          id?: string
+          live_stream_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          co_host_id?: string
+          created_at?: string
+          host_id?: string
+          id?: string
+          live_stream_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_co_hosts_live_stream_id_fkey"
+            columns: ["live_stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_streams: {
         Row: {
           created_at: string
@@ -776,7 +814,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      gift_ledger: {
+        Row: {
+          created_at: string | null
+          credit_amount: number | null
+          debit_amount: number | null
+          gift_id: string | null
+          gift_type: string | null
+          live_stream_id: string | null
+          platform_fee: number | null
+          post_id: string | null
+          recipient_display_name: string | null
+          recipient_id: string | null
+          recipient_username: string | null
+          sender_display_name: string | null
+          sender_id: string | null
+          sender_username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gifts_live_stream_id_fkey"
+            columns: ["live_stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gifts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
