@@ -112,7 +112,7 @@ const LiveRoom = forwardRef<LiveRoomHandle, Props>(({ roomName, role, identity, 
           const videoConstraints: any = { facingMode: "user" };
           if (quality !== "auto") {
             const max = qualityToMaxDim[quality];
-            videoConstraints.resolution = max === 240 ? VideoPresets.h240 : max === 540 ? VideoPresets.h540 : VideoPresets.h1080;
+            videoConstraints.resolution = max === 240 ? VideoPresets.h180 : max === 540 ? VideoPresets.h540 : VideoPresets.h1080;
           }
           localTracks = await createLocalTracks({ audio: true, video: videoConstraints });
           for (const t of localTracks) {
