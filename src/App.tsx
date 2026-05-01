@@ -10,6 +10,7 @@ import IncomingCallModal from "@/components/IncomingCallModal";
 import VideoCall from "@/components/VideoCall";
 import CoHostNotice from "@/components/CoHostNotice";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import CookieConsent from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import ReelsPage from "./pages/ReelsPage";
 import ChatPage from "./pages/ChatPage";
@@ -46,6 +47,7 @@ const AppContent = () => {
   return (
     <>
       <AnalyticsTracker />
+      <CookieConsent />
       <IncomingCallModal
         onAccept={(call) => setActiveCall({
           remoteUserId: call.callerId,

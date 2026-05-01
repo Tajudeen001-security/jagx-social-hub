@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie } from "lucide-react";
+import { setConsent } from "@/components/CookieConsent";
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ const AdminPage = () => {
   const GA_ID = "G-LZWPQ1VYYN";
   const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const SUPABASE_URL = "https://tmmeymhaxkrvngjfhave.supabase.co";
+  const dynamicSitemap = `${SUPABASE_URL}/functions/v1/sitemap?origin=${encodeURIComponent(siteUrl)}`;
 
   const runSeoChecks = async () => {
     setSeoChecks(s => ({ ...s, checking: true }));
@@ -372,6 +375,9 @@ const AdminPage = () => {
                 { label: "Submit sitemap", url: `https://search.google.com/search-console/sitemaps?resource_id=${encodeURIComponent(siteUrl)}` },
                 { label: "Performance report", url: `https://search.google.com/search-console/performance/search-analytics?resource_id=${encodeURIComponent(siteUrl)}` },
                 { label: "Google site:search (is it indexed?)", url: `https://www.google.com/search?q=site:${encodeURIComponent(siteUrl.replace(/^https?:\/\//,""))}` },
+                { label: "View static sitemap.xml", url: `${siteUrl}/sitemap.xml` },
+                { label: "View robots.txt", url: `${siteUrl}/robots.txt` },
+                { label: "View dynamic sitemap (live data)", url: dynamicSitemap },
               ].map(l => (
                 <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer"
                   className="p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40 transition-colors">
@@ -405,6 +411,25 @@ const AdminPage = () => {
                   <span className="text-[10px] font-bold uppercase text-gold">Run</span>
                 </button>
               ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Privacy & Consent</p>
+              <button onClick={() => { setConsent(true); toast.success("Analytics consent granted"); }}
+                className="w-full p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40">
+                <span className="text-sm text-foreground flex items-center gap-2"><Cookie className="size-4 text-gold" /> Grant analytics consent</span>
+                <span className="text-[10px] font-bold uppercase text-green-400">Opt In</span>
+              </button>
+              <button onClick={() => { setConsent(false); toast.success("Analytics consent revoked"); }}
+                className="w-full p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40">
+                <span className="text-sm text-foreground flex items-center gap-2"><Cookie className="size-4 text-muted-foreground" /> Revoke analytics consent</span>
+                <span className="text-[10px] font-bold uppercase text-red-400">Opt Out</span>
+              </button>
+              <button onClick={() => { localStorage.removeItem("jagx_consent"); toast.success("Consent reset — banner will reappear on reload"); }}
+                className="w-full p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40">
+                <span className="text-sm text-foreground">Reset consent banner</span>
+                <span className="text-[10px] font-bold uppercase text-gold">Reset</span>
+              </button>
             </div>
           </div>
         )}

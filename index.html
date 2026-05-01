@@ -9,6 +9,34 @@
     <meta name="author" content="Gbadamosi Tajudeen Olajide" />
     <meta name="google-site-verification" content="Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84" />
 
+    <!-- Google tag (gtag.js) — Consent Mode v2: denied by default until user opts in -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LZWPQ1VYYN"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
+
+      // Default consent: denied (GDPR/ePrivacy safe)
+      try {
+        var stored = localStorage.getItem('jagx_consent');
+        var granted = stored === 'granted';
+        gtag('consent', 'default', {
+          ad_storage: granted ? 'granted' : 'denied',
+          ad_user_data: granted ? 'granted' : 'denied',
+          ad_personalization: granted ? 'granted' : 'denied',
+          analytics_storage: granted ? 'granted' : 'denied',
+          functionality_storage: 'granted',
+          security_storage: 'granted',
+          wait_for_update: 500
+        });
+      } catch (e) {
+        gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied' });
+      }
+
+      gtag('js', new Date());
+      gtag('config', 'G-LZWPQ1VYYN', { anonymize_ip: true });
+    </script>
+
     <!-- TODO: Update og:title to match your application name -->
     <meta property="og:title" content="Lovable App" />
     <meta property="og:description" content="Lovable Generated Project" />
@@ -22,15 +50,6 @@
 
   <body>
     <div id="root"></div>
-    <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LZWPQ1VYYN"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-LZWPQ1VYYN', { send_page_view: true });
-      window.gtag = gtag;
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

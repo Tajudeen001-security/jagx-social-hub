@@ -1,14 +1,19 @@
+# JagX Buddy Connect — robots.txt
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /auth
+Disallow: /edit-profile
+Disallow: /dm/
+Disallow: /group/
+Disallow: /notifications
+Disallow: /earnings
+
 User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
-User-agent: *
-Allow: /
+Sitemap: /sitemap.xml
+Sitemap: https://tmmeymhaxkrvngjfhave.supabase.co/functions/v1/sitemap
