@@ -8,6 +8,7 @@ import FeedAd from "@/components/FeedAd";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { timeAgo } from "@/lib/timeAgo";
 
 interface StoryGroup {
   userId: string;
@@ -58,19 +59,33 @@ const FeedPage = () => {
   };
 
   const loadPosts = async () => {
-    const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(50);
+    // Hide video posts from feed — videos appear only in Reels
+    const { data } = await supabase
+      .from("posts")
+      .select("*")
+      .is("video_url", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
     if (!data || data.length === 0) { setPosts([]); return; }
     const userIds = [...new Set(data.map(p => p.user_id))];
-    const { data: profiles } = await supabase.from("profiles").select("user_id, username, avatar_url, is_verified").in("user_id", userIds);
+    const [{ data: profiles }, { data: presence }] = await Promise.all([
+      supabase.from("profiles").select("user_id, username, avatar_url, is_verified").in("user_id", userIds),
+      supabase.from("user_presence").select("user_id, is_online, last_seen").in("user_id", userIds),
+    ]);
     const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+    const presenceMap = new Map(presence?.map(p => [p.user_id, p]) || []);
+    const ONLINE_WINDOW_MS = 2 * 60 * 1000; // consider online if seen in last 2 min
 
     setPosts(data.map(post => {
       const p = profileMap.get(post.user_id);
+      const pres = presenceMap.get(post.user_id);
+      const isOnline = !!pres && (pres.is_online === true || (pres.last_seen && Date.now() - new Date(pres.last_seen).getTime() < ONLINE_WINDOW_MS));
       return {
         ...post,
         username: p?.username || "user",
         avatarUrl: p?.avatar_url || `https://picsum.photos/id/${Math.floor(Math.random() * 100)}/100/100`,
         isVerified: p?.is_verified || false,
+        isOnline,
       };
     }));
   };
@@ -130,8 +145,9 @@ const FeedPage = () => {
               caption={post.content || ""}
               likes={0}
               comments={0}
-              timeAgo={new Date(post.created_at).toLocaleDateString()}
+              timeAgo={timeAgo(post.created_at)}
               isVerified={post.isVerified}
+              isOnline={post.isOnline}
               userId={post.user_id}
               showFollow={post.user_id !== user?.id}
               onDelete={() => handlePostDelete(post.id)}
