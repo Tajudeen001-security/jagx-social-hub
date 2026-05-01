@@ -3,19 +3,54 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw } from "lucide-react";
 
 const AdminPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger">("users");
+  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger" | "seo">("users");
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [seoChecks, setSeoChecks] = useState<{
+    metaTag: boolean | null;
+    htmlFile: boolean | null;
+    gaLoaded: boolean | null;
+    indexed: "checking" | "unknown";
+    checking: boolean;
+  }>({ metaTag: null, htmlFile: null, gaLoaded: null, indexed: "unknown", checking: false });
+
+  const GA_ID = "G-LZWPQ1VYYN";
+  const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
+  const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  const runSeoChecks = async () => {
+    setSeoChecks(s => ({ ...s, checking: true }));
+    // Meta tag check
+    const meta = document.querySelector('meta[name="google-site-verification"]') as HTMLMetaElement | null;
+    const metaOk = !!meta && meta.content === VERIFICATION_TOKEN;
+
+    // HTML file check
+    let htmlOk = false;
+    try {
+      const res = await fetch(`/google${VERIFICATION_TOKEN}.html`, { cache: "no-store" });
+      htmlOk = res.ok;
+    } catch {}
+
+    // GA loaded
+    const gaOk = typeof (window as any).gtag === "function" && Array.isArray((window as any).dataLayer);
+
+    setSeoChecks({ metaTag: metaOk, htmlFile: htmlOk, gaLoaded: gaOk, indexed: "unknown", checking: false });
+  };
+
+  useEffect(() => {
+    if (tab === "seo") runSeoChecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   useEffect(() => {
     if (!user) return;
@@ -137,6 +172,7 @@ const AdminPage = () => {
           { key: "verification", icon: BadgeCheck, label: "Verify" },
           { key: "transactions", icon: Coins, label: "Withdrawals" },
           { key: "ledger", icon: Receipt, label: "Ledger" },
+          { key: "seo", icon: Globe, label: "SEO" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${tab === t.key ? "text-gold border-b-2 border-gold" : "text-muted-foreground"}`}>
@@ -282,6 +318,93 @@ const AdminPage = () => {
                 </div>
               ))}
               {ledger.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No gifts recorded yet</p>}
+            </div>
+          </div>
+        )}
+
+        {tab === "seo" && (
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-surface border border-border/30 space-y-1">
+              <p className="text-[10px] uppercase text-muted-foreground tracking-widest">Site URL</p>
+              <p className="text-xs text-foreground break-all">{siteUrl}</p>
+              <p className="text-[10px] uppercase text-muted-foreground tracking-widest mt-2">GA4 Measurement ID</p>
+              <p className="text-xs text-gold font-mono">{GA_ID}</p>
+              <p className="text-[10px] uppercase text-muted-foreground tracking-widest mt-2">Verification Token</p>
+              <p className="text-[10px] text-foreground font-mono break-all">{VERIFICATION_TOKEN}</p>
+            </div>
+
+            <button onClick={runSeoChecks} disabled={seoChecks.checking}
+              className="w-full py-2 rounded-xl bg-surface border border-border text-xs font-bold uppercase tracking-widest text-foreground flex items-center justify-center gap-2">
+              <RefreshCw className={`size-3 ${seoChecks.checking ? "animate-spin" : ""}`} /> Re-run checks
+            </button>
+
+            <div className="space-y-2">
+              {[
+                { label: "Google verification meta tag", ok: seoChecks.metaTag, hint: "Present in <head> of index.html" },
+                { label: "Google verification HTML file", ok: seoChecks.htmlFile, hint: `/google${VERIFICATION_TOKEN}.html reachable` },
+                { label: "Google Analytics (gtag.js) loaded", ok: seoChecks.gaLoaded, hint: "window.gtag and dataLayer ready" },
+              ].map(c => (
+                <div key={c.label} className="p-3 rounded-xl bg-surface border border-border/30 flex items-start gap-3">
+                  {c.ok === null ? (
+                    <div className="size-4 mt-0.5 rounded-full border border-muted-foreground/40" />
+                  ) : c.ok ? (
+                    <CheckCircle className="size-4 mt-0.5 text-green-400 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="size-4 mt-0.5 text-red-400 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground">{c.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.hint}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase ${c.ok ? "text-green-400" : c.ok === false ? "text-red-400" : "text-muted-foreground"}`}>
+                    {c.ok === null ? "..." : c.ok ? "OK" : "Missing"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Search Console</p>
+              {[
+                { label: "Open Search Console", url: "https://search.google.com/search-console" },
+                { label: "Verify ownership (URL prefix)", url: `https://search.google.com/search-console/welcome?siteUrl=${encodeURIComponent(siteUrl)}` },
+                { label: "Check URL indexing status", url: `https://search.google.com/search-console/inspect?resource_id=${encodeURIComponent(siteUrl)}&id=${encodeURIComponent(siteUrl)}` },
+                { label: "Submit sitemap", url: `https://search.google.com/search-console/sitemaps?resource_id=${encodeURIComponent(siteUrl)}` },
+                { label: "Performance report", url: `https://search.google.com/search-console/performance/search-analytics?resource_id=${encodeURIComponent(siteUrl)}` },
+                { label: "Google site:search (is it indexed?)", url: `https://www.google.com/search?q=site:${encodeURIComponent(siteUrl.replace(/^https?:\/\//,""))}` },
+              ].map(l => (
+                <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer"
+                  className="p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40 transition-colors">
+                  <span className="text-sm text-foreground">{l.label}</span>
+                  <ExternalLink className="size-4 text-gold" />
+                </a>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Google Analytics</p>
+              {[
+                { label: "Open GA4 Realtime", url: `https://analytics.google.com/analytics/web/#/p/realtime/overview` },
+                { label: "Open GA4 Reports", url: `https://analytics.google.com/analytics/web/` },
+                { label: "Send test event", action: () => {
+                  if (typeof window.gtag === "function") {
+                    window.gtag("event", "admin_test_event", { source: "admin_panel", ts: Date.now() });
+                    toast.success("Test event sent to GA4");
+                  } else { toast.error("gtag not loaded yet"); }
+                }},
+              ].map(l => l.url ? (
+                <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer"
+                  className="p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40 transition-colors">
+                  <span className="text-sm text-foreground">{l.label}</span>
+                  <ExternalLink className="size-4 text-gold" />
+                </a>
+              ) : (
+                <button key={l.label} onClick={l.action}
+                  className="w-full p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between hover:border-gold/40 transition-colors text-left">
+                  <span className="text-sm text-foreground">{l.label}</span>
+                  <span className="text-[10px] font-bold uppercase text-gold">Run</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
