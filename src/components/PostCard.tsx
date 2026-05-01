@@ -18,6 +18,7 @@ interface PostCardProps {
   timeAgo: string;
   location?: string;
   isVerified?: boolean;
+  isOnline?: boolean;
   userId?: string;
   onFollow?: () => void;
   showFollow?: boolean;
@@ -26,7 +27,7 @@ interface PostCardProps {
 }
 
 const PostCard = ({
-  id, username, avatarUrl, imageUrl, videoUrl, caption, likes, comments, timeAgo, location, isVerified, userId, onFollow, showFollow, onDelete, onEdit,
+  id, username, avatarUrl, imageUrl, videoUrl, caption, likes, comments, timeAgo, location, isVerified, isOnline, userId, onFollow, showFollow, onDelete, onEdit,
 }: PostCardProps) => {
   const { user } = useAuth();
   const [liked, setLiked] = useState(false);
@@ -176,8 +177,11 @@ const PostCard = ({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <button onClick={() => userId && navigate(`/user/${userId}`)} className="flex items-center gap-3">
-          <div className="size-9 rounded-full border border-gold/20 p-[1px]">
+          <div className="relative size-9 rounded-full border border-gold/20 p-[1px]">
             <img src={avatarUrl} alt={username} className="w-full h-full rounded-full object-cover" />
+            {isOnline && (
+              <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-green-500 border-2 border-background" aria-label="Online" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
