@@ -14,6 +14,7 @@ const AnalyticsTracker = () => {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    if (localStorage.getItem("jagx_consent") !== "granted") return;
     const path = location.pathname + location.search;
     window.gtag("config", GA_ID, {
       page_path: path,
