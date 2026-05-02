@@ -9,6 +9,7 @@ import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { timeAgo } from "@/lib/timeAgo";
+import StructuredData from "@/components/StructuredData";
 
 interface StoryGroup {
   userId: string;
@@ -105,6 +106,14 @@ const FeedPage = () => {
 
   return (
     <div className="min-h-screen pb-24">
+      <StructuredData id="home" data={{
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: "JagX Connect — Home Feed",
+        description: "Latest posts, stories and reels from the JagX Buddy Connect community.",
+        url: typeof window !== "undefined" ? window.location.origin + "/" : "",
+        isPartOf: { "@type": "WebSite", name: "JagX Connect", url: typeof window !== "undefined" ? window.location.origin : "" },
+      }} />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="font-display italic text-xl text-gold">JagX</h1>
