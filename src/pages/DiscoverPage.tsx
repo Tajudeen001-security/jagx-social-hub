@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
+import StructuredData from "@/components/StructuredData";
 
 interface Profile {
   id: string;
@@ -113,6 +114,18 @@ const DiscoverPage = () => {
 
   return (
     <div className="min-h-screen pb-24">
+      <StructuredData id="discover" data={{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Discover creators on JagX Connect",
+        description: "Find and follow verified creators, friends, and trending profiles on JagX Connect.",
+        url: typeof window !== "undefined" ? window.location.origin + "/discover" : "",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: (typeof window !== "undefined" ? window.location.origin : "") + "/discover?q={query}",
+          "query-input": "required name=query",
+        },
+      }} />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center gap-3 px-4 h-14">
           <button onClick={() => navigate(-1)} className="text-foreground">
