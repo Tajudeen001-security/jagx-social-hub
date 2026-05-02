@@ -25,6 +25,43 @@ const AdminPage = () => {
     checking: boolean;
   }>({ metaTag: null, htmlFile: null, gaLoaded: null, indexed: "unknown", checking: false });
 
+  const [scLoading, setScLoading] = useState(false);
+  const [scSummary, setScSummary] = useState<any>(null);
+  const [scPerf, setScPerf] = useState<any>(null);
+  const [scError, setScError] = useState<string | null>(null);
+  const [scDays, setScDays] = useState<number>(28);
+
+  const loadSearchConsole = async () => {
+    setScLoading(true); setScError(null);
+    try {
+      const summary = await supabase.functions.invoke("search-console", { body: { action: "summary" } });
+      if (summary.error) throw new Error(summary.error.message);
+      setScSummary(summary.data);
+      const site = summary.data?.defaultSite || summary.data?.sites?.[0]?.siteUrl;
+      if (site) {
+        const perf = await supabase.functions.invoke("search-console", { body: { action: "performance", siteUrl: site, days: scDays } });
+        if (perf.error) throw new Error(perf.error.message);
+        setScPerf(perf.data);
+      }
+    } catch (e: any) {
+      setScError(e?.message || "Failed to load Search Console data");
+    } finally {
+      setScLoading(false);
+    }
+  };
+
+  const submitSitemapToGoogle = async () => {
+    try {
+      const site = scSummary?.defaultSite || scSummary?.sites?.[0]?.siteUrl;
+      if (!site) { toast.error("No verified site found in Search Console"); return; }
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "submit-sitemap", siteUrl: site, sitemapUrl: `${siteUrl}/sitemap.xml` },
+      });
+      if (r.error) throw new Error(r.error.message);
+      toast.success("Sitemap submitted to Google");
+    } catch (e: any) { toast.error(e?.message || "Submit failed"); }
+  };
+
   const GA_ID = "G-LZWPQ1VYYN";
   const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -51,7 +88,10 @@ const AdminPage = () => {
   };
 
   useEffect(() => {
-    if (tab === "seo") runSeoChecks();
+    if (tab === "seo") {
+      runSeoChecks();
+      loadSearchConsole();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -368,6 +408,92 @@ const AdminPage = () => {
 
             <div className="space-y-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Search Console</p>
+              {/* Live Search Console API data */}
+              <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gold uppercase tracking-widest">Live API Data</p>
+                  <button onClick={loadSearchConsole} disabled={scLoading}
+                    className="text-[10px] uppercase font-bold text-foreground flex items-center gap-1">
+                    <RefreshCw className={`size-3 ${scLoading ? "animate-spin" : ""}`} /> Refresh
+                  </button>
+                </div>
+                {scError && (
+                  <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-[11px] text-red-400 break-words">
+                    {scError}
+                    <p className="mt-1 text-muted-foreground">Tip: add the service-account email below as a user (Owner) in Search Console for your verified property.</p>
+                  </div>
+                )}
+                {scSummary?.serviceAccountEmail && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground">Service account email</p>
+                    <p className="text-[11px] font-mono text-foreground break-all">{scSummary.serviceAccountEmail}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Add this email as Owner in Search Console → Settings → Users and permissions.</p>
+                  </div>
+                )}
+                {scSummary?.sites && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground">Properties ({scSummary.sites.length})</p>
+                    {scSummary.sites.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">No properties accessible yet.</p>
+                    ) : (
+                      <ul className="space-y-1 mt-1">
+                        {scSummary.sites.map((s: any) => (
+                          <li key={s.siteUrl} className="text-[11px] text-foreground flex justify-between gap-2">
+                            <span className="truncate">{s.siteUrl}</span>
+                            <span className="text-gold uppercase">{s.permissionLevel}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                {scSummary?.inspection?.inspectionResult?.indexStatusResult && (
+                  <div className="pt-2 border-t border-border/30">
+                    <p className="text-[10px] uppercase text-muted-foreground">Index status</p>
+                    <p className="text-[11px] text-foreground">
+                      Verdict: <span className="text-gold font-bold">{scSummary.inspection.inspectionResult.indexStatusResult.verdict}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">Coverage: {scSummary.inspection.inspectionResult.indexStatusResult.coverageState}</p>
+                    {scSummary.inspection.inspectionResult.indexStatusResult.lastCrawlTime && (
+                      <p className="text-[11px] text-muted-foreground">Last crawl: {new Date(scSummary.inspection.inspectionResult.indexStatusResult.lastCrawlTime).toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+                {scPerf?.totals && (
+                  <div className="pt-2 border-t border-border/30">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase text-muted-foreground">Last {scPerf.range.days} days</p>
+                      <select value={scDays} onChange={e => { setScDays(Number(e.target.value)); }}
+                        className="bg-background border border-border rounded text-[10px] text-foreground px-1 py-0.5">
+                        {[7,14,28,60,90].map(d => <option key={d} value={d}>{d}d</option>)}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="p-2 rounded bg-background/50"><p className="text-[10px] text-muted-foreground">Clicks</p><p className="text-sm font-bold text-gold">{scPerf.totals.clicks ?? 0}</p></div>
+                      <div className="p-2 rounded bg-background/50"><p className="text-[10px] text-muted-foreground">Impressions</p><p className="text-sm font-bold text-foreground">{scPerf.totals.impressions ?? 0}</p></div>
+                      <div className="p-2 rounded bg-background/50"><p className="text-[10px] text-muted-foreground">CTR</p><p className="text-sm font-bold text-foreground">{((scPerf.totals.ctr ?? 0)*100).toFixed(2)}%</p></div>
+                      <div className="p-2 rounded bg-background/50"><p className="text-[10px] text-muted-foreground">Avg position</p><p className="text-sm font-bold text-foreground">{(scPerf.totals.position ?? 0).toFixed(1)}</p></div>
+                    </div>
+                    {scPerf.queries?.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[10px] uppercase text-muted-foreground">Top queries</p>
+                        <ul className="space-y-1 mt-1">
+                          {scPerf.queries.slice(0,10).map((q: any) => (
+                            <li key={q.keys?.[0]} className="flex justify-between text-[11px]">
+                              <span className="text-foreground truncate">{q.keys?.[0]}</span>
+                              <span className="text-muted-foreground">{q.clicks} clicks · {q.impressions} impr</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button onClick={submitSitemapToGoogle}
+                  className="w-full mt-2 py-2 rounded-lg gold-gradient text-primary-foreground text-[10px] font-bold uppercase tracking-widest">
+                  Submit sitemap to Google
+                </button>
+              </div>
               {[
                 { label: "Open Search Console", url: "https://search.google.com/search-console" },
                 { label: "Verify ownership (URL prefix)", url: `https://search.google.com/search-console/welcome?siteUrl=${encodeURIComponent(siteUrl)}` },
