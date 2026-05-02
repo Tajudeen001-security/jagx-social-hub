@@ -10,6 +10,7 @@ import LiveRoom, { type LiveRoomHandle, type StreamQuality } from "@/components/
 import LiveClipRecorder from "@/components/LiveClipRecorder";
 import CoHostInvite from "@/components/CoHostInvite";
 import QualitySwitcher from "@/components/QualitySwitcher";
+import StructuredData from "@/components/StructuredData";
 
 const LivePage = () => {
   const navigate = useNavigate();
@@ -222,6 +223,13 @@ const LivePage = () => {
 
   return (
     <div className="min-h-screen pb-24">
+      <StructuredData id="live" data={{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Live streams on JagX Connect",
+        description: "Watch creators stream live on JagX Connect — chat, send JagX Coin gifts, and join the room.",
+        url: typeof window !== "undefined" ? window.location.origin + "/live" : "",
+      }} />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="font-display italic text-xl text-gold">Live</h1>
