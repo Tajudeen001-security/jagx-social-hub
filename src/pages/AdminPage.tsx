@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch } from "lucide-react";
 import { setConsent } from "@/components/CookieConsent";
 
 const AdminPage = () => {
@@ -30,6 +30,12 @@ const AdminPage = () => {
   const [scPerf, setScPerf] = useState<any>(null);
   const [scError, setScError] = useState<string | null>(null);
   const [scDays, setScDays] = useState<number>(28);
+
+  // Sitemap monitoring state
+  const [fetchCheck, setFetchCheck] = useState<{ loading: boolean; results: any[]; checkedAt?: string }>({ loading: false, results: [] });
+  const [scSitemaps, setScSitemaps] = useState<any[] | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
+  const [structuredData, setStructuredData] = useState<{ count: number; types: string[]; valid: boolean } | null>(null);
 
   const loadSearchConsole = async () => {
     setScLoading(true); setScError(null);
@@ -62,6 +68,54 @@ const AdminPage = () => {
     } catch (e: any) { toast.error(e?.message || "Submit failed"); }
   };
 
+  const runFetchCheck = async () => {
+    setFetchCheck({ loading: true, results: [] });
+    try {
+      const targets = [
+        { name: "Static sitemap.xml", url: `${siteUrl}/sitemap.xml` },
+        { name: "robots.txt", url: `${siteUrl}/robots.txt` },
+        { name: "Dynamic sitemap (live)", url: dynamicSitemap },
+      ];
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "fetch-check", targets },
+      });
+      if (r.error) throw new Error(r.error.message);
+      setFetchCheck({ loading: false, results: r.data?.results || [], checkedAt: r.data?.checkedAt });
+      toast.success("Fetch check complete");
+    } catch (e: any) {
+      setFetchCheck({ loading: false, results: [] });
+      toast.error(e?.message || "Fetch check failed");
+    }
+  };
+
+  const loadSitemapsStatus = async () => {
+    try {
+      const site = scSummary?.defaultSite || scSummary?.sites?.[0]?.siteUrl;
+      if (!site) return;
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "sitemaps-status", siteUrl: site },
+      });
+      if (r.error) throw new Error(r.error.message);
+      setScSitemaps(r.data?.sitemaps || []);
+    } catch (e: any) {
+      console.warn("sitemaps-status failed", e);
+    }
+  };
+
+  const validateStructuredData = () => {
+    const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    const types: string[] = [];
+    let valid = true;
+    for (const s of scripts) {
+      try {
+        const data = JSON.parse(s.textContent || "{}");
+        const t = Array.isArray(data) ? data.map(d => d["@type"]).join(",") : data["@type"];
+        if (t) types.push(String(t));
+      } catch { valid = false; }
+    }
+    setStructuredData({ count: scripts.length, types, valid });
+  };
+
   const GA_ID = "G-LZWPQ1VYYN";
   const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -91,9 +145,28 @@ const AdminPage = () => {
     if (tab === "seo") {
       runSeoChecks();
       loadSearchConsole();
+      runFetchCheck();
+      validateStructuredData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // Auto-refresh sitemap monitoring every 5 minutes when enabled
+  useEffect(() => {
+    if (!autoRefresh || tab !== "seo") return;
+    const id = setInterval(() => {
+      runFetchCheck();
+      loadSitemapsStatus();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, tab, scSummary]);
+
+  // Pull SC sitemap status once summary is loaded
+  useEffect(() => {
+    if (tab === "seo" && scSummary) loadSitemapsStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scSummary, tab]);
 
   useEffect(() => {
     if (!user) return;
