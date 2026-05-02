@@ -162,6 +162,37 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: r.ok, status: r.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (action === "sitemaps-status") {
+      const site = explicitSite || defaultSite;
+      if (!site) throw new Error("siteUrl required");
+      const r = await fetch(`https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/sitemaps`, { headers: authH });
+      const json = await r.json();
+      return new Response(JSON.stringify({ ok: r.ok, sitemaps: json.sitemap || [], raw: json }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (action === "fetch-check") {
+      // Server-side fetch of sitemap + robots from public origin (avoids CORS)
+      const targets: { name: string; url: string }[] = body.targets || [];
+      const results = await Promise.all(targets.map(async (t) => {
+        const started = Date.now();
+        try {
+          const r = await fetch(t.url, { redirect: "follow" });
+          const text = await r.text();
+          return {
+            name: t.name, url: t.url, ok: r.ok, status: r.status,
+            contentType: r.headers.get("content-type"),
+            bytes: text.length,
+            ms: Date.now() - started,
+            preview: text.slice(0, 240),
+            urlCount: t.url.includes("sitemap") ? (text.match(/<url>/g)?.length || 0) : undefined,
+          };
+        } catch (err: any) {
+          return { name: t.name, url: t.url, ok: false, status: 0, error: err?.message || String(err), ms: Date.now() - started };
+        }
+      }));
+      return new Response(JSON.stringify({ results, checkedAt: new Date().toISOString() }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("search-console error:", e);

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch } from "lucide-react";
 import { setConsent } from "@/components/CookieConsent";
 
 const AdminPage = () => {
@@ -30,6 +30,12 @@ const AdminPage = () => {
   const [scPerf, setScPerf] = useState<any>(null);
   const [scError, setScError] = useState<string | null>(null);
   const [scDays, setScDays] = useState<number>(28);
+
+  // Sitemap monitoring state
+  const [fetchCheck, setFetchCheck] = useState<{ loading: boolean; results: any[]; checkedAt?: string }>({ loading: false, results: [] });
+  const [scSitemaps, setScSitemaps] = useState<any[] | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
+  const [structuredData, setStructuredData] = useState<{ count: number; types: string[]; valid: boolean } | null>(null);
 
   const loadSearchConsole = async () => {
     setScLoading(true); setScError(null);
@@ -62,6 +68,54 @@ const AdminPage = () => {
     } catch (e: any) { toast.error(e?.message || "Submit failed"); }
   };
 
+  const runFetchCheck = async () => {
+    setFetchCheck({ loading: true, results: [] });
+    try {
+      const targets = [
+        { name: "Static sitemap.xml", url: `${siteUrl}/sitemap.xml` },
+        { name: "robots.txt", url: `${siteUrl}/robots.txt` },
+        { name: "Dynamic sitemap (live)", url: dynamicSitemap },
+      ];
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "fetch-check", targets },
+      });
+      if (r.error) throw new Error(r.error.message);
+      setFetchCheck({ loading: false, results: r.data?.results || [], checkedAt: r.data?.checkedAt });
+      toast.success("Fetch check complete");
+    } catch (e: any) {
+      setFetchCheck({ loading: false, results: [] });
+      toast.error(e?.message || "Fetch check failed");
+    }
+  };
+
+  const loadSitemapsStatus = async () => {
+    try {
+      const site = scSummary?.defaultSite || scSummary?.sites?.[0]?.siteUrl;
+      if (!site) return;
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "sitemaps-status", siteUrl: site },
+      });
+      if (r.error) throw new Error(r.error.message);
+      setScSitemaps(r.data?.sitemaps || []);
+    } catch (e: any) {
+      console.warn("sitemaps-status failed", e);
+    }
+  };
+
+  const validateStructuredData = () => {
+    const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    const types: string[] = [];
+    let valid = true;
+    for (const s of scripts) {
+      try {
+        const data = JSON.parse(s.textContent || "{}");
+        const t = Array.isArray(data) ? data.map(d => d["@type"]).join(",") : data["@type"];
+        if (t) types.push(String(t));
+      } catch { valid = false; }
+    }
+    setStructuredData({ count: scripts.length, types, valid });
+  };
+
   const GA_ID = "G-LZWPQ1VYYN";
   const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -91,9 +145,28 @@ const AdminPage = () => {
     if (tab === "seo") {
       runSeoChecks();
       loadSearchConsole();
+      runFetchCheck();
+      validateStructuredData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // Auto-refresh sitemap monitoring every 5 minutes when enabled
+  useEffect(() => {
+    if (!autoRefresh || tab !== "seo") return;
+    const id = setInterval(() => {
+      runFetchCheck();
+      loadSitemapsStatus();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, tab, scSummary]);
+
+  // Pull SC sitemap status once summary is loaded
+  useEffect(() => {
+    if (tab === "seo" && scSummary) loadSitemapsStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scSummary, tab]);
 
   useEffect(() => {
     if (!user) return;
@@ -408,6 +481,106 @@ const AdminPage = () => {
 
             <div className="space-y-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Search Console</p>
+              {/* Sitemap Monitor */}
+              <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gold uppercase tracking-widest flex items-center gap-1.5">
+                    <Activity className="size-3.5" /> Sitemap Monitor
+                  </p>
+                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} className="accent-gold" />
+                    Auto-refresh 5m
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={runFetchCheck} disabled={fetchCheck.loading}
+                    className="flex-1 py-2 rounded-lg gold-gradient text-primary-foreground text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+                    <RefreshCw className={`size-3 ${fetchCheck.loading ? "animate-spin" : ""}`} /> Run fetch check
+                  </button>
+                  <button onClick={loadSitemapsStatus}
+                    className="flex-1 py-2 rounded-lg bg-background border border-border text-[10px] font-bold uppercase tracking-widest text-foreground flex items-center justify-center gap-1">
+                    <FileSearch className="size-3" /> SC ingestion
+                  </button>
+                </div>
+                {fetchCheck.checkedAt && (
+                  <p className="text-[10px] text-muted-foreground">Last checked: {new Date(fetchCheck.checkedAt).toLocaleTimeString()}</p>
+                )}
+                {fetchCheck.results.length > 0 && (
+                  <div className="space-y-1.5">
+                    {fetchCheck.results.map((r) => (
+                      <div key={r.url} className="p-2 rounded-lg bg-background/50 border border-border/30">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-foreground truncate">{r.name}</span>
+                          <span className={`text-[10px] font-bold uppercase ${r.ok ? "text-green-400" : "text-red-400"}`}>
+                            {r.ok ? `${r.status} OK` : `FAIL ${r.status || ""}`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {r.contentType || r.error || "—"} · {r.bytes ?? 0} bytes · {r.ms}ms
+                          {typeof r.urlCount === "number" && r.urlCount > 0 && <> · <span className="text-gold">{r.urlCount} URLs</span></>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {scSitemaps && (
+                  <div className="pt-2 border-t border-border/30">
+                    <p className="text-[10px] uppercase text-muted-foreground">Search Console ingestion ({scSitemaps.length})</p>
+                    {scSitemaps.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">No sitemaps registered yet. Click "Submit sitemap to Google" below.</p>
+                    ) : (
+                      <ul className="space-y-1 mt-1">
+                        {scSitemaps.map((s: any) => (
+                          <li key={s.path} className="text-[11px]">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-foreground truncate">{s.path}</span>
+                              <span className={s.errors > 0 ? "text-red-400" : "text-green-400"}>
+                                {s.errors > 0 ? `${s.errors} err` : "OK"}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Last submitted: {s.lastSubmitted ? new Date(s.lastSubmitted).toLocaleString() : "—"}
+                              {s.lastDownloaded && <> · Last downloaded: {new Date(s.lastDownloaded).toLocaleString()}</>}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Structured Data Validator */}
+              <div className="p-3 rounded-xl bg-surface border border-border/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground uppercase tracking-widest">Structured Data</p>
+                  <button onClick={validateStructuredData}
+                    className="text-[10px] uppercase font-bold text-gold flex items-center gap-1">
+                    <RefreshCw className="size-3" /> Re-scan
+                  </button>
+                </div>
+                {structuredData ? (
+                  <>
+                    <p className="text-[11px] text-foreground">
+                      Found <span className="text-gold font-bold">{structuredData.count}</span> JSON-LD blocks ·
+                      {structuredData.valid ? <span className="text-green-400"> all parse OK</span> : <span className="text-red-400"> parse error</span>}
+                    </p>
+                    {structuredData.types.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {structuredData.types.map((t, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/30">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    <a href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(siteUrl + window.location.pathname)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="block text-[10px] text-gold underline mt-1">Validate this page in Google Rich Results Test →</a>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">Click Re-scan to inspect.</p>
+                )}
+              </div>
+
               {/* Live Search Console API data */}
               <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
                 <div className="flex items-center justify-between">

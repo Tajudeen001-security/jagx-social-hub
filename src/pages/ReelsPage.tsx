@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useNavigate } from "react-router-dom";
+import StructuredData from "@/components/StructuredData";
 
 interface Reel {
   id: string;
@@ -57,6 +58,14 @@ const ReelsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <StructuredData id="reels" data={{
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "JagX Connect Reels",
+        description: "Short-form vertical videos from creators on JagX Connect.",
+        url: typeof window !== "undefined" ? window.location.origin + "/reels" : "",
+        numberOfItems: reels.length,
+      }} />
       <div className="fixed top-0 left-0 right-0 z-40 flex justify-between items-center px-4 py-3 bg-gradient-to-b from-background/80 to-transparent">
         <h1 className="font-display italic text-lg text-gold">Reels</h1>
         <button onClick={() => setIsMuted(!isMuted)} className="text-foreground">
