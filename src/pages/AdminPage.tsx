@@ -481,6 +481,106 @@ const AdminPage = () => {
 
             <div className="space-y-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Search Console</p>
+              {/* Sitemap Monitor */}
+              <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gold uppercase tracking-widest flex items-center gap-1.5">
+                    <Activity className="size-3.5" /> Sitemap Monitor
+                  </p>
+                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} className="accent-gold" />
+                    Auto-refresh 5m
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={runFetchCheck} disabled={fetchCheck.loading}
+                    className="flex-1 py-2 rounded-lg gold-gradient text-primary-foreground text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+                    <RefreshCw className={`size-3 ${fetchCheck.loading ? "animate-spin" : ""}`} /> Run fetch check
+                  </button>
+                  <button onClick={loadSitemapsStatus}
+                    className="flex-1 py-2 rounded-lg bg-background border border-border text-[10px] font-bold uppercase tracking-widest text-foreground flex items-center justify-center gap-1">
+                    <FileSearch className="size-3" /> SC ingestion
+                  </button>
+                </div>
+                {fetchCheck.checkedAt && (
+                  <p className="text-[10px] text-muted-foreground">Last checked: {new Date(fetchCheck.checkedAt).toLocaleTimeString()}</p>
+                )}
+                {fetchCheck.results.length > 0 && (
+                  <div className="space-y-1.5">
+                    {fetchCheck.results.map((r) => (
+                      <div key={r.url} className="p-2 rounded-lg bg-background/50 border border-border/30">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-foreground truncate">{r.name}</span>
+                          <span className={`text-[10px] font-bold uppercase ${r.ok ? "text-green-400" : "text-red-400"}`}>
+                            {r.ok ? `${r.status} OK` : `FAIL ${r.status || ""}`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {r.contentType || r.error || "—"} · {r.bytes ?? 0} bytes · {r.ms}ms
+                          {typeof r.urlCount === "number" && r.urlCount > 0 && <> · <span className="text-gold">{r.urlCount} URLs</span></>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {scSitemaps && (
+                  <div className="pt-2 border-t border-border/30">
+                    <p className="text-[10px] uppercase text-muted-foreground">Search Console ingestion ({scSitemaps.length})</p>
+                    {scSitemaps.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">No sitemaps registered yet. Click "Submit sitemap to Google" below.</p>
+                    ) : (
+                      <ul className="space-y-1 mt-1">
+                        {scSitemaps.map((s: any) => (
+                          <li key={s.path} className="text-[11px]">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-foreground truncate">{s.path}</span>
+                              <span className={s.errors > 0 ? "text-red-400" : "text-green-400"}>
+                                {s.errors > 0 ? `${s.errors} err` : "OK"}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Last submitted: {s.lastSubmitted ? new Date(s.lastSubmitted).toLocaleString() : "—"}
+                              {s.lastDownloaded && <> · Last downloaded: {new Date(s.lastDownloaded).toLocaleString()}</>}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Structured Data Validator */}
+              <div className="p-3 rounded-xl bg-surface border border-border/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground uppercase tracking-widest">Structured Data</p>
+                  <button onClick={validateStructuredData}
+                    className="text-[10px] uppercase font-bold text-gold flex items-center gap-1">
+                    <RefreshCw className="size-3" /> Re-scan
+                  </button>
+                </div>
+                {structuredData ? (
+                  <>
+                    <p className="text-[11px] text-foreground">
+                      Found <span className="text-gold font-bold">{structuredData.count}</span> JSON-LD blocks ·
+                      {structuredData.valid ? <span className="text-green-400"> all parse OK</span> : <span className="text-red-400"> parse error</span>}
+                    </p>
+                    {structuredData.types.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {structuredData.types.map((t, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/30">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    <a href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(siteUrl + window.location.pathname)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="block text-[10px] text-gold underline mt-1">Validate this page in Google Rich Results Test →</a>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">Click Re-scan to inspect.</p>
+                )}
+              </div>
+
               {/* Live Search Console API data */}
               <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
                 <div className="flex items-center justify-between">
