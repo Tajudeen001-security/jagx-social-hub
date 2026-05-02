@@ -25,6 +25,43 @@ const AdminPage = () => {
     checking: boolean;
   }>({ metaTag: null, htmlFile: null, gaLoaded: null, indexed: "unknown", checking: false });
 
+  const [scLoading, setScLoading] = useState(false);
+  const [scSummary, setScSummary] = useState<any>(null);
+  const [scPerf, setScPerf] = useState<any>(null);
+  const [scError, setScError] = useState<string | null>(null);
+  const [scDays, setScDays] = useState<number>(28);
+
+  const loadSearchConsole = async () => {
+    setScLoading(true); setScError(null);
+    try {
+      const summary = await supabase.functions.invoke("search-console", { body: { action: "summary" } });
+      if (summary.error) throw new Error(summary.error.message);
+      setScSummary(summary.data);
+      const site = summary.data?.defaultSite || summary.data?.sites?.[0]?.siteUrl;
+      if (site) {
+        const perf = await supabase.functions.invoke("search-console", { body: { action: "performance", siteUrl: site, days: scDays } });
+        if (perf.error) throw new Error(perf.error.message);
+        setScPerf(perf.data);
+      }
+    } catch (e: any) {
+      setScError(e?.message || "Failed to load Search Console data");
+    } finally {
+      setScLoading(false);
+    }
+  };
+
+  const submitSitemapToGoogle = async () => {
+    try {
+      const site = scSummary?.defaultSite || scSummary?.sites?.[0]?.siteUrl;
+      if (!site) { toast.error("No verified site found in Search Console"); return; }
+      const r = await supabase.functions.invoke("search-console", {
+        body: { action: "submit-sitemap", siteUrl: site, sitemapUrl: `${siteUrl}/sitemap.xml` },
+      });
+      if (r.error) throw new Error(r.error.message);
+      toast.success("Sitemap submitted to Google");
+    } catch (e: any) { toast.error(e?.message || "Submit failed"); }
+  };
+
   const GA_ID = "G-LZWPQ1VYYN";
   const VERIFICATION_TOKEN = "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -51,7 +88,10 @@ const AdminPage = () => {
   };
 
   useEffect(() => {
-    if (tab === "seo") runSeoChecks();
+    if (tab === "seo") {
+      runSeoChecks();
+      loadSearchConsole();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
