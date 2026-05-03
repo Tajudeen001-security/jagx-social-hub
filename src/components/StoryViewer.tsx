@@ -3,6 +3,8 @@ import { X, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Story {
   id: string;
@@ -29,6 +31,8 @@ const StoryViewer = ({ stories, initialIndex, onClose }: StoryViewerProps) => {
   const [viewCount, setViewCount] = useState(0);
   const [viewers, setViewers] = useState<any[]>([]);
   const [showViewers, setShowViewers] = useState(false);
+  const [flyEmoji, setFlyEmoji] = useState<string | null>(null);
+  const [reply, setReply] = useState("");
   const story = stories[currentIndex];
   const isOwner = story?.user_id === user?.id;
 
@@ -67,6 +71,29 @@ const StoryViewer = ({ stories, initialIndex, onClose }: StoryViewerProps) => {
       setViewers(profiles || []);
     }
     setShowViewers(true);
+  };
+
+  const sendReaction = async (emoji: string) => {
+    if (!user || !story || isOwner) return;
+    setFlyEmoji(emoji);
+    setTimeout(() => setFlyEmoji(null), 1200);
+    await supabase.from("notifications").insert({
+      user_id: story.user_id,
+      from_user_id: user.id,
+      type: "story_view",
+      content: `reacted ${emoji} to your story`,
+    });
+  };
+
+  const sendReply = async () => {
+    if (!user || !story || !reply.trim() || isOwner) return;
+    const { error } = await supabase.from("messages").insert({
+      sender_id: user.id,
+      receiver_id: story.user_id,
+      content: `↳ Replied to your story: ${reply.trim()}`,
+    });
+    if (error) toast.error("Couldn't send reply"); else toast.success("Reply sent");
+    setReply("");
   };
 
   if (!story) return null;
@@ -116,6 +143,40 @@ const StoryViewer = ({ stories, initialIndex, onClose }: StoryViewerProps) => {
           <Eye className="size-4" />
           <span className="text-sm">{viewCount} views</span>
         </button>
+      )}
+
+      {/* Reactions + reply (non-owner) */}
+      {!isOwner && (
+        <div className="px-4 pb-4 pt-2 space-y-2 relative">
+          <AnimatePresence>
+            {flyEmoji && (
+              <motion.div
+                initial={{ y: 0, opacity: 1, scale: 1 }}
+                animate={{ y: -180, opacity: 0, scale: 2 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.2 }}
+                className="absolute left-1/2 -translate-x-1/2 bottom-20 text-4xl pointer-events-none"
+              >
+                {flyEmoji}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="flex items-center justify-around">
+            {["❤️","🔥","😂","😮","👏","🐆"].map(e => (
+              <button key={e} onClick={() => sendReaction(e)} className="text-2xl active:scale-125 transition-transform">{e}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={reply}
+              onChange={e => setReply(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && sendReply()}
+              placeholder={`Reply to ${story.username || "story"}...`}
+              className="flex-1 px-3 py-2 rounded-full bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/50 outline-none"
+            />
+            <button onClick={sendReply} disabled={!reply.trim()} className="text-gold text-sm font-bold disabled:opacity-30">Send</button>
+          </div>
+        </div>
       )}
 
       {/* Viewers modal */}
