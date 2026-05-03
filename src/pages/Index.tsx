@@ -1,4 +1,4 @@
-import { Bell, Search, Radio, Users, Bot } from "lucide-react";
+import { Search, Radio, Users, Bot, MessageCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import StoryCircle from "@/components/StoryCircle";
@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { timeAgo } from "@/lib/timeAgo";
 import StructuredData from "@/components/StructuredData";
+import NotificationBell from "@/components/NotificationBell";
+import MessageIconBadge from "@/components/MessageIconBadge";
 
 interface StoryGroup {
   userId: string;
@@ -121,10 +123,8 @@ const FeedPage = () => {
             <button onClick={() => navigate("/ai-chat")} className="text-gold"><Bot className="size-5" /></button>
             <button onClick={() => navigate("/live")} className="flex items-center gap-1 text-foreground"><Radio className="size-4" /></button>
             <button onClick={() => navigate("/discover")} className="text-foreground"><Users className="size-5" /></button>
-            <button onClick={() => navigate("/notifications")} className="relative text-foreground">
-              <Bell className="size-5" />
-              <span className="absolute -top-1 -right-1 size-2 rounded-full gold-gradient" />
-            </button>
+            <MessageIconBadge />
+            <NotificationBell />
           </div>
         </div>
       </header>
