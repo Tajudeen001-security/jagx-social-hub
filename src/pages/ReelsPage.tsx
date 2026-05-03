@@ -183,6 +183,21 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
         <p className="text-sm text-white/80 line-clamp-2 mt-1">{reel.content || ""}</p>
       </div>
 
+      {/* Quick inline comment bar */}
+      <div className="absolute bottom-2 left-3 right-3 flex items-center gap-2">
+        <input
+          value={commentText}
+          onChange={e => setCommentText(e.target.value)}
+          onClick={e => e.stopPropagation()}
+          onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") addComment(); }}
+          placeholder="Add a comment..."
+          className="flex-1 px-3 py-2 rounded-full bg-black/50 backdrop-blur border border-white/20 text-xs text-white placeholder:text-white/60 outline-none"
+        />
+        <button onClick={(e) => { e.stopPropagation(); addComment(); }} disabled={!commentText.trim()} className="text-gold disabled:opacity-30">
+          <Send className="size-5" />
+        </button>
+      </div>
+
       <AnimatePresence>
         {showGift && (
           <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="absolute bottom-20 left-3 right-3 p-3 rounded-xl bg-black/80 backdrop-blur-xl border border-gold/20">
