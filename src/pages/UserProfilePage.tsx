@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, MessageCircle, UserPlus, UserMinus, BadgeCheck, MoreVertical } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserPlus, UserMinus, BadgeCheck, MoreVertical, Pin, Play, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,13 +16,23 @@ const UserProfilePage = () => {
   const [followingCount, setFollowingCount] = useState(0);
   const [postCount, setPostCount] = useState(0);
   const [posts, setPosts] = useState<any[]>([]);
+  const [viewingPost, setViewingPost] = useState<any | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     supabase.from("profiles").select("*").eq("user_id", userId).single().then(({ data }) => { if (data) setProfile(data); });
     supabase.from("followers").select("id", { count: "exact" }).eq("following_id", userId).then(({ count }) => setFollowerCount(count || 0));
     supabase.from("followers").select("id", { count: "exact" }).eq("follower_id", userId).then(({ count }) => setFollowingCount(count || 0));
-    supabase.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false }).then(({ data }) => { if (data) { setPosts(data); setPostCount(data.length); } });
+    supabase.from("posts").select("*").eq("user_id", userId).then(({ data }) => {
+      if (!data) return;
+      const sorted = [...data].sort((a, b) => {
+        if (a.pinned_at && !b.pinned_at) return -1;
+        if (!a.pinned_at && b.pinned_at) return 1;
+        if (a.pinned_at && b.pinned_at) return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setPosts(sorted); setPostCount(sorted.length);
+    });
     if (user) {
       supabase.from("followers").select("id").eq("follower_id", user.id).eq("following_id", userId).then(({ data }) => setIsFollowing((data?.length || 0) > 0));
     }
@@ -92,12 +102,45 @@ const UserProfilePage = () => {
 
       <div className="grid grid-cols-3 gap-[2px]">
         {posts.map((post) => (
-          <div key={post.id} className="aspect-square bg-surface overflow-hidden">
+          <button key={post.id} onClick={() => setViewingPost(post)} className="relative aspect-square bg-surface overflow-hidden block">
             {post.image_url ? <img src={post.image_url} className="w-full h-full object-cover" loading="lazy" /> :
+              post.video_url ? (
+                <div className="relative w-full h-full">
+                  <video src={post.video_url} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20"><Play className="size-6 text-white fill-white" /></div>
+                </div>
+              ) :
               <div className="w-full h-full flex items-center justify-center p-2"><p className="text-xs text-muted-foreground text-center line-clamp-3">{post.content}</p></div>}
-          </div>
+            {post.pinned_at && (
+              <div className="absolute top-1 left-1 size-5 rounded-full bg-black/70 flex items-center justify-center">
+                <Pin className="size-3 text-gold fill-gold" />
+              </div>
+            )}
+          </button>
         ))}
       </div>
+      {viewingPost && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex flex-col" onClick={() => setViewingPost(null)}>
+          <div className="flex items-center justify-between px-4 h-14 border-b border-border/30">
+            <span className="text-sm font-semibold text-champagne">Post</span>
+            <button onClick={() => setViewingPost(null)}><X className="size-5 text-foreground" /></button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+            {viewingPost.video_url ? (
+              <video src={viewingPost.video_url} className="max-w-full max-h-full rounded-xl" controls autoPlay loop playsInline />
+            ) : viewingPost.image_url ? (
+              <img src={viewingPost.image_url} className="max-w-full max-h-full rounded-xl object-contain" />
+            ) : (
+              <p className="text-foreground text-center px-4">{viewingPost.content}</p>
+            )}
+          </div>
+          {viewingPost.content && (viewingPost.video_url || viewingPost.image_url) && (
+            <div className="px-4 py-3 border-t border-border/30">
+              <p className="text-sm text-foreground/90">{viewingPost.content}</p>
+            </div>
+          )}
+        </div>
+      )}
       <BottomNav />
     </div>
   );
