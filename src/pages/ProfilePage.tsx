@@ -1,9 +1,10 @@
-import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin, Shield } from "lucide-react";
+import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin, Shield, Pin, X, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved">("posts");
@@ -13,16 +14,50 @@ const ProfilePage = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [viewingPost, setViewingPost] = useState<any | null>(null);
+  const [pinMenuFor, setPinMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("*").eq("user_id", user.id).single().then(({ data }) => { if (data) setProfile(data); });
-    supabase.from("posts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setPosts(data); });
+    loadPosts();
     supabase.from("followers").select("id", { count: "exact" }).eq("following_id", user.id).then(({ count }) => setFollowerCount(count || 0));
     supabase.from("followers").select("id", { count: "exact" }).eq("follower_id", user.id).then(({ count }) => setFollowingCount(count || 0));
   }, [user]);
 
-  const filteredPosts = activeTab === "reels" ? posts.filter(p => p.video_url) : posts;
+  const loadPosts = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("posts").select("*").eq("user_id", user.id);
+    if (!data) return;
+    const sorted = [...data].sort((a, b) => {
+      if (a.pinned_at && !b.pinned_at) return -1;
+      if (!a.pinned_at && b.pinned_at) return 1;
+      if (a.pinned_at && b.pinned_at) return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    setPosts(sorted);
+  };
+
+  useEffect(() => {
+    if (activeTab !== "saved" || !user) return;
+    (async () => {
+      const { data: favs } = await supabase.from("favorites").select("post_id").eq("user_id", user.id).order("created_at", { ascending: false });
+      const ids = (favs || []).map((f: any) => f.post_id);
+      if (ids.length === 0) { setFavorites([]); return; }
+      const { data: favPosts } = await supabase.from("posts").select("*").in("id", ids);
+      setFavorites(favPosts || []);
+    })();
+  }, [activeTab, user]);
+
+  const togglePin = async (postId: string, currentlyPinned: boolean) => {
+    setPinMenuFor(null);
+    await supabase.from("posts").update({ pinned_at: currentlyPinned ? null : new Date().toISOString() }).eq("id", postId);
+    toast.success(currentlyPinned ? "Unpinned" : "Pinned to profile 📌");
+    loadPosts();
+  };
+
+  const displayPosts = activeTab === "saved" ? favorites : activeTab === "reels" ? posts.filter(p => p.video_url) : posts;
 
   return (
     <div className="min-h-screen pb-24">
@@ -122,17 +157,65 @@ const ProfilePage = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-[2px]">
-        {filteredPosts.map(post => (
-          <div key={post.id} className="aspect-square bg-surface overflow-hidden">
-            {post.image_url ? <img src={post.image_url} className="w-full h-full object-cover" loading="lazy" /> :
-              post.video_url ? <video src={post.video_url} className="w-full h-full object-cover" /> :
-              <div className="w-full h-full flex items-center justify-center p-2"><p className="text-xs text-muted-foreground text-center line-clamp-3">{post.content}</p></div>}
+        {displayPosts.map(post => (
+          <div key={post.id} className="relative aspect-square bg-surface overflow-hidden">
+            <button onClick={() => setViewingPost(post)} className="block w-full h-full">
+              {post.image_url ? <img src={post.image_url} className="w-full h-full object-cover" loading="lazy" /> :
+                post.video_url ? (
+                  <div className="relative w-full h-full">
+                    <video src={post.video_url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20"><Play className="size-6 text-white fill-white" /></div>
+                  </div>
+                ) :
+                <div className="w-full h-full flex items-center justify-center p-2"><p className="text-xs text-muted-foreground text-center line-clamp-3">{post.content}</p></div>}
+            </button>
+            {post.pinned_at && activeTab !== "saved" && (
+              <div className="absolute top-1 left-1 size-5 rounded-full bg-black/70 flex items-center justify-center pointer-events-none">
+                <Pin className="size-3 text-gold fill-gold" />
+              </div>
+            )}
+            {activeTab !== "saved" && (
+              <button onClick={(e) => { e.stopPropagation(); setPinMenuFor(pinMenuFor === post.id ? null : post.id); }}
+                className="absolute top-1 right-1 size-6 rounded-full bg-black/60 flex items-center justify-center">
+                <Pin className="size-3 text-white" />
+              </button>
+            )}
+            {pinMenuFor === post.id && (
+              <div className="absolute top-8 right-1 z-10 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                <button onClick={() => togglePin(post.id, !!post.pinned_at)} className="block px-3 py-1.5 text-xs text-foreground hover:bg-surface whitespace-nowrap">
+                  {post.pinned_at ? "Unpin" : "Pin to profile"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
-        {filteredPosts.length === 0 && (
+        {displayPosts.length === 0 && (
           <div className="col-span-3 py-16 text-center"><p className="text-sm text-muted-foreground">No posts yet. Create your first post!</p></div>
         )}
       </div>
+
+      {viewingPost && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex flex-col" onClick={() => setViewingPost(null)}>
+          <div className="flex items-center justify-between px-4 h-14 border-b border-border/30">
+            <span className="text-sm font-semibold text-champagne">Post</span>
+            <button onClick={() => setViewingPost(null)}><X className="size-5 text-foreground" /></button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+            {viewingPost.video_url ? (
+              <video src={viewingPost.video_url} className="max-w-full max-h-full rounded-xl" controls autoPlay loop playsInline />
+            ) : viewingPost.image_url ? (
+              <img src={viewingPost.image_url} className="max-w-full max-h-full rounded-xl object-contain" />
+            ) : (
+              <p className="text-foreground text-center px-4">{viewingPost.content}</p>
+            )}
+          </div>
+          {viewingPost.content && (viewingPost.video_url || viewingPost.image_url) && (
+            <div className="px-4 py-3 border-t border-border/30">
+              <p className="text-sm text-foreground/90">{viewingPost.content}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <BottomNav />
     </div>
