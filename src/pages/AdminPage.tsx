@@ -581,6 +581,46 @@ const AdminPage = () => {
                 )}
               </div>
 
+            {/* Page-by-page JSON-LD coverage */}
+            <div className="p-3 rounded-xl bg-surface border border-border/30 space-y-2">
+              <p className="text-xs font-bold text-foreground uppercase tracking-widest">JSON-LD Coverage Report</p>
+              <p className="text-[10px] text-muted-foreground">Global tags (WebSite + SearchAction + Organization) ship in index.html on every route.</p>
+              <div className="space-y-1.5">
+                {[
+                  { route: "/", page: "Home Feed", schemas: ["WebPage", "WebSite", "SearchAction", "Organization"], missing: [] as string[] },
+                  { route: "/reels", page: "Reels", schemas: ["ItemList", "WebSite", "SearchAction", "Organization"], missing: [] },
+                  { route: "/discover", page: "Discover", schemas: ["CollectionPage", "WebSite", "SearchAction", "Organization"], missing: [] },
+                  { route: "/live", page: "Live", schemas: ["CollectionPage", "WebSite", "SearchAction", "Organization"], missing: [] },
+                  { route: "/chat", page: "Messages", schemas: ["WebSite", "SearchAction", "Organization"], missing: ["WebPage"] },
+                  { route: "/profile", page: "Profile", schemas: ["WebSite", "SearchAction", "Organization"], missing: ["ProfilePage", "Person"] },
+                  { route: "/coins", page: "Coins", schemas: ["WebSite", "SearchAction", "Organization"], missing: ["WebPage"] },
+                  { route: "/notifications", page: "Notifications", schemas: ["WebSite", "SearchAction", "Organization"], missing: ["WebPage"] },
+                  { route: "/auth", page: "Auth", schemas: ["WebSite", "SearchAction", "Organization"], missing: ["WebPage"] },
+                  { route: "/admin", page: "Admin", schemas: [], missing: ["(noindex - intentional)"] },
+                ].map(r => (
+                  <div key={r.route} className="p-2 rounded-lg bg-background/50 border border-border/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[11px] font-mono text-gold">{r.route}</span>
+                        <span className="text-[10px] text-muted-foreground truncate">{r.page}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase ${r.missing.length === 0 ? "text-green-400" : "text-yellow-400"}`}>
+                        {r.missing.length === 0 ? "Full" : `${r.missing.length} missing`}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {r.schemas.map(s => (
+                        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/20">{s}</span>
+                      ))}
+                      {r.missing.map(s => (
+                        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
               {/* Live Search Console API data */}
               <div className="p-3 rounded-xl bg-surface border border-gold/30 space-y-2">
                 <div className="flex items-center justify-between">
