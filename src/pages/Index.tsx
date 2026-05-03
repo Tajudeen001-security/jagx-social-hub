@@ -90,7 +90,7 @@ const FeedPage = () => {
         isVerified: p?.is_verified || false,
         isOnline,
       };
-    }));
+    }).sort(() => Math.random() - 0.5));
   };
 
   const openStory = (group: StoryGroup) => {
