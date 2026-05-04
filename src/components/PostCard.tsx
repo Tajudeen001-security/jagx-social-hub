@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import TaggedText from "@/components/TaggedText";
+import PollBlock from "@/components/PollBlock";
+import PaywallOverlay from "@/components/PaywallOverlay";
 
 interface PostCardProps {
   id?: string;
@@ -24,14 +27,19 @@ interface PostCardProps {
   showFollow?: boolean;
   onDelete?: () => void;
   onEdit?: (newContent: string) => void;
+  unlockPrice?: number;
+  isPoll?: boolean;
+  pollOptions?: string[] | null;
 }
 
 const PostCard = ({
   id, username, avatarUrl, imageUrl, videoUrl, caption, likes, comments, timeAgo, location, isVerified, isOnline, userId, onFollow, showFollow, onDelete, onEdit,
+  unlockPrice = 0, isPoll = false, pollOptions = null,
 }: PostCardProps) => {
   const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const [likeCount, setLikeCount] = useState(likes);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -48,6 +56,7 @@ const PostCard = ({
   const navigate = useNavigate();
 
   const isOwner = user?.id === userId;
+  const requiresUnlock = !!id && unlockPrice > 0 && !isOwner && !unlocked;
 
   useEffect(() => {
     if (!user || !id) return;
@@ -220,17 +229,32 @@ const PostCard = ({
       )}
 
       {/* Media or Text-only display */}
-      {(videoUrl || imageUrl) ? (
+      {isPoll && pollOptions && id ? (
+        <>
+          {caption && (
+            <div className="px-4 py-3">
+              <TaggedText text={caption} className="text-base text-foreground leading-relaxed whitespace-pre-wrap" />
+            </div>
+          )}
+          <PollBlock postId={id} options={pollOptions} />
+        </>
+      ) : (videoUrl || imageUrl) ? (
         <div className="relative aspect-square bg-surface overflow-hidden">
           {videoUrl ? <video src={videoUrl} className="w-full h-full object-cover" controls playsInline preload="metadata" onDoubleClick={handleLike} /> :
             <img src={imageUrl} alt="Post" className="w-full h-full object-cover" loading="lazy" onDoubleClick={handleLike} />}
           <AnimatePresence>
             {liked && <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute inset-0 flex items-center justify-center pointer-events-none"><Heart className="size-20 text-red-500 fill-red-500" /></motion.div>}
           </AnimatePresence>
+          {requiresUnlock && id && userId && (
+            <PaywallOverlay postId={id} ownerId={userId} price={unlockPrice} onUnlocked={() => setUnlocked(true)} />
+          )}
         </div>
       ) : caption ? (
-        <div className="px-4 py-6 bg-gradient-to-br from-surface to-surface-elevated rounded-lg mx-2 my-1 min-h-[120px] flex items-center" onDoubleClick={handleLike}>
-          <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">{caption}</p>
+        <div className="relative px-4 py-6 bg-gradient-to-br from-surface to-surface-elevated rounded-lg mx-2 my-1 min-h-[120px] flex items-center" onDoubleClick={handleLike}>
+          <TaggedText text={caption} className="text-base text-foreground leading-relaxed whitespace-pre-wrap" />
+          {requiresUnlock && id && userId && (
+            <PaywallOverlay postId={id} ownerId={userId} price={unlockPrice} onUnlocked={() => setUnlocked(true)} />
+          )}
         </div>
       ) : null}
 
@@ -267,7 +291,12 @@ const PostCard = ({
       {/* Likes & Caption */}
       <div className="px-4 pt-2">
         <p className="text-sm font-semibold text-champagne">{formatCount(likeCount)} appreciations</p>
-        {!editing && (videoUrl || imageUrl) && caption && <p className="text-sm mt-1"><span className="font-semibold text-champagne">{username} </span><span className="text-foreground/80">{caption}</span></p>}
+        {!editing && (videoUrl || imageUrl) && caption && (
+          <p className="text-sm mt-1">
+            <span className="font-semibold text-champagne">{username} </span>
+            <TaggedText text={caption} className="text-foreground/80" />
+          </p>
+        )}
         {!editing && !(videoUrl || imageUrl) && <p className="text-sm mt-1 font-semibold text-champagne">{username}</p>}
         <button onClick={() => setShowComments(!showComments)} className="text-xs text-muted-foreground mt-1">{dbComments.length || comments} comments</button>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{timeAgo}</p>
@@ -279,13 +308,19 @@ const PostCard = ({
           {topLevelComments.map(c => (
             <div key={c.id}>
               <div className="flex items-start gap-2">
-                <p className="text-sm flex-1"><span className="font-semibold text-champagne">{c.username} </span><span className="text-foreground/80">{c.content}</span></p>
+                <p className="text-sm flex-1">
+                  <span className="font-semibold text-champagne">{c.username} </span>
+                  <TaggedText text={c.content} className="text-foreground/80" />
+                </p>
                 <button onClick={() => setReplyTo({ id: c.id, username: c.username })} className="shrink-0 text-muted-foreground"><Reply className="size-3" /></button>
               </div>
               {/* Replies */}
               {repliesMap.get(c.id)?.map(r => (
                 <div key={r.id} className="ml-6 mt-1">
-                  <p className="text-xs"><span className="font-semibold text-champagne">{r.username} </span><span className="text-foreground/70">{r.content}</span></p>
+                  <p className="text-xs">
+                    <span className="font-semibold text-champagne">{r.username} </span>
+                    <TaggedText text={r.content} className="text-foreground/70" />
+                  </p>
                 </div>
               ))}
             </div>
