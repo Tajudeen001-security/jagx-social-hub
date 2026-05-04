@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Heart, MessageCircle, UserPlus, Coins, Bell } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, UserPlus, Coins, Bell, Lock, Eye, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ interface Notification {
   is_read: boolean;
   created_at: string;
   from_user_id: string | null;
+  related_post_id?: string | null;
 }
 
 const typeIcons: Record<string, typeof Heart> = {
@@ -19,6 +20,9 @@ const typeIcons: Record<string, typeof Heart> = {
   comment: MessageCircle,
   follow: UserPlus,
   coin_tip: Coins,
+  unlock: Lock,
+  story_view: Eye,
+  new_user: UserCheck,
   general: Bell,
 };
 
@@ -27,6 +31,9 @@ const typeColors: Record<string, string> = {
   comment: "text-blue-400",
   follow: "text-gold",
   coin_tip: "text-gold",
+  unlock: "text-gold",
+  story_view: "text-muted-foreground",
+  new_user: "text-blue-400",
   general: "text-muted-foreground",
 };
 
@@ -34,6 +41,7 @@ const NotificationsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [actors, setActors] = useState<Record<string, { username: string; avatar_url: string | null }>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -62,7 +70,27 @@ const NotificationsPage = () => {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
-    if (data) setNotifications(data);
+    if (!data) return;
+    setNotifications(data);
+    const ids = [...new Set(data.map(n => n.from_user_id).filter(Boolean) as string[])];
+    if (ids.length === 0) return;
+    const { data: profiles } = await supabase.from("profiles").select("user_id, username, avatar_url").in("user_id", ids);
+    const map: Record<string, { username: string; avatar_url: string | null }> = {};
+    profiles?.forEach(p => { map[p.user_id] = { username: p.username || "user", avatar_url: p.avatar_url }; });
+    setActors(map);
+  };
+  const openNotification = async (n: Notification) => {
+    if (!n.is_read) {
+      await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
+    }
+    if (n.related_post_id) {
+      navigate(`/post/${n.related_post_id}`);
+    } else if (n.type === "follow" && n.from_user_id) {
+      navigate(`/user/${n.from_user_id}`);
+    } else if (n.from_user_id) {
+      navigate(`/user/${n.from_user_id}`);
+    }
   };
 
   const markAllRead = async () => {
@@ -128,18 +156,32 @@ const NotificationsPage = () => {
           {notifications.map((notif) => {
             const Icon = typeIcons[notif.type] || Bell;
             const color = typeColors[notif.type] || "text-muted-foreground";
+            const actor = notif.from_user_id ? actors[notif.from_user_id] : undefined;
             return (
-              <div
+              <button
                 key={notif.id}
-                className={`flex items-start gap-3 px-4 py-3 transition-colors ${
+                onClick={() => openNotification(notif)}
+                className={`w-full text-left flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface/40 ${
                   !notif.is_read ? "bg-primary/5" : ""
                 }`}
               >
-                <div className={`mt-0.5 size-8 rounded-full bg-surface flex items-center justify-center ${color}`}>
-                  <Icon className="size-4" />
+                <div className="relative shrink-0">
+                  {actor?.avatar_url ? (
+                    <img src={actor.avatar_url} alt={actor.username} className="size-9 rounded-full object-cover border border-gold/20" />
+                  ) : (
+                    <div className="size-9 rounded-full bg-surface flex items-center justify-center text-xs text-gold font-bold">
+                      {(actor?.username?.[0] || "?").toUpperCase()}
+                    </div>
+                  )}
+                  <div className={`absolute -bottom-1 -right-1 size-5 rounded-full bg-background border border-border flex items-center justify-center ${color}`}>
+                    <Icon className="size-3" />
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground">{notif.content}</p>
+                  <p className="text-sm text-foreground">
+                    {actor && <span className="font-semibold text-champagne">@{actor.username} </span>}
+                    {notif.content}
+                  </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {timeAgo(notif.created_at)}
                   </p>
@@ -147,7 +189,7 @@ const NotificationsPage = () => {
                 {!notif.is_read && (
                   <div className="mt-2 size-2 rounded-full gold-gradient shrink-0" />
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

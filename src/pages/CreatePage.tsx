@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Image, Type, MapPin, Hash, X, Loader2 } from "lucide-react";
+import { Camera, Image, Type, MapPin, Hash, X, Loader2, Coins, BarChart3, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +16,9 @@ const CreatePage = () => {
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [posting, setPosting] = useState(false);
-  const [postType, setPostType] = useState<"post" | "story">("post");
+  const [postType, setPostType] = useState<"post" | "story" | "poll">("post");
+  const [unlockPrice, setUnlockPrice] = useState<number>(0);
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +34,12 @@ const CreatePage = () => {
 
   const handlePost = async () => {
     if (!user) return;
-    if (!content.trim() && !mediaFile) { toast.error("Add some content or media!"); return; }
+    if (postType !== "poll" && !content.trim() && !mediaFile) { toast.error("Add some content or media!"); return; }
+    if (postType === "poll") {
+      const cleaned = pollOptions.map(o => o.trim()).filter(Boolean);
+      if (!content.trim()) { toast.error("Add a poll question"); return; }
+      if (cleaned.length < 2) { toast.error("Add at least 2 poll options"); return; }
+    }
     setPosting(true);
 
     try {
@@ -56,6 +63,18 @@ const CreatePage = () => {
         });
         if (error) throw error;
         toast.success("Story posted! 🐆");
+      } else if (postType === "poll") {
+        const cleaned = pollOptions.map(o => o.trim()).filter(Boolean);
+        const { error } = await supabase.from("posts").insert({
+          user_id: user.id,
+          content: content,
+          post_type: "text",
+          is_poll: true,
+          poll_options: cleaned,
+          hashtags: parsedTags.length > 0 ? parsedTags : null,
+        });
+        if (error) throw error;
+        toast.success("Poll posted! 📊");
       } else {
         const { error } = await supabase.from("posts").insert({
           user_id: user.id,
@@ -64,6 +83,7 @@ const CreatePage = () => {
           video_url: mediaType === "video" ? mediaUrl : null,
           post_type: mediaFile ? mediaType : "text",
           hashtags: parsedTags.length > 0 ? parsedTags : null,
+          unlock_price: unlockPrice,
         });
         if (error) throw error;
         toast.success("Posted! 🐆");
@@ -101,18 +121,55 @@ const CreatePage = () => {
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${postType === "story" ? "gold-gradient text-primary-foreground" : "bg-surface border border-border text-foreground"}`}>
             Story
           </button>
+          <button onClick={() => setPostType("poll")}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${postType === "poll" ? "gold-gradient text-primary-foreground" : "bg-surface border border-border text-foreground"}`}>
+            Poll
+          </button>
         </div>
 
         {/* Text area */}
         <div className="p-4 rounded-xl bg-surface border border-border/30 min-h-[120px]">
           <textarea
-            placeholder={postType === "story" ? "Add a caption to your story..." : "What's on your mind?"}
+            placeholder={postType === "story" ? "Add a caption to your story..." : postType === "poll" ? "Ask a question..." : "What's on your mind? Use @ to tag"}
             value={content}
             onChange={e => setContent(e.target.value)}
             className="w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none text-sm"
             rows={4}
           />
         </div>
+
+        {/* Poll options builder */}
+        {postType === "poll" && (
+          <div className="space-y-2">
+            <label className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2"><BarChart3 className="size-3.5" /> Options</label>
+            {pollOptions.map((opt, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input value={opt} onChange={e => setPollOptions(prev => prev.map((p, j) => j === i ? e.target.value : p))}
+                  placeholder={`Option ${i + 1}`}
+                  className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+                {pollOptions.length > 2 && (
+                  <button onClick={() => setPollOptions(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground"><X className="size-4" /></button>
+                )}
+              </div>
+            ))}
+            {pollOptions.length < 6 && (
+              <button onClick={() => setPollOptions(prev => [...prev, ""])} className="flex items-center gap-2 text-xs text-gold">
+                <Plus className="size-3.5" /> Add option
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Monetization */}
+        {postType === "post" && (
+          <div className="p-4 rounded-xl bg-surface border border-border/30 space-y-2">
+            <label className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2"><Coins className="size-3.5 text-gold" /> Premium unlock price (JagX coins)</label>
+            <input type="number" min={0} value={unlockPrice} onChange={e => setUnlockPrice(Math.max(0, parseInt(e.target.value || "0", 10)))}
+              placeholder="0 = free for everyone"
+              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground outline-none" />
+            <p className="text-[10px] text-muted-foreground">Set 0 to keep public. Viewers pay this in JagX coins to unlock. You receive 70%, platform takes 30%.</p>
+          </div>
+        )}
 
         {/* Media preview */}
         {mediaPreview && (
