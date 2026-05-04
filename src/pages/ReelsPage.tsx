@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import StructuredData from "@/components/StructuredData";
+import TaggedText from "@/components/TaggedText";
 
 interface Reel {
   id: string;
@@ -81,7 +82,11 @@ const ReelsPage = () => {
   useEffect(() => {
     const reel = reels[currentIndex];
     if (!reel || !user) return;
-    supabase.from("reel_views").insert({ user_id: user.id, post_id: reel.id }).then(() => {});
+    // Upsert so a re-watch is idempotent — view is permanently persisted across sessions
+    supabase
+      .from("reel_views")
+      .upsert({ user_id: user.id, post_id: reel.id }, { onConflict: "user_id,post_id", ignoreDuplicates: true })
+      .then(() => {});
   }, [currentIndex, reels, user]);
 
   return (
@@ -315,21 +320,23 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
       </div>
 
       {/* Username + caption — leave room on right for action rail */}
-      <div className="absolute bottom-24 left-3 right-20 z-10">
+      <div className="absolute bottom-20 left-3 right-24 z-10">
         <button onClick={() => navigate(`/user/${reel.user_id}`)} className="font-semibold text-sm text-white drop-shadow flex items-center gap-1">
           @{reel.username} {reel.is_verified && <span className="text-gold">✓</span>}
         </button>
-        <p className="text-sm text-white/90 line-clamp-2 mt-1 drop-shadow">{reel.content || ""}</p>
+        <p className="text-sm text-white/90 line-clamp-2 mt-1 drop-shadow">
+          <TaggedText text={reel.content || ""} />
+        </p>
       </div>
 
-      {/* Quick inline comment bar — narrower so it doesn't run under the rail */}
-      <div className="absolute bottom-3 left-3 right-20 flex items-center gap-2 z-10">
+      {/* Quick inline comment bar — sits below caption, clear of action rail */}
+      <div className="absolute bottom-3 left-3 right-24 flex items-center gap-2 z-10">
         <input
           value={commentText}
           onChange={e => setCommentText(e.target.value)}
           onClick={e => e.stopPropagation()}
           onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") addComment(); }}
-          placeholder="Add a cute comment ✨"
+          placeholder="Add a comment · use @ to tag ✨"
           className="flex-1 px-3 py-2 rounded-full bg-black/50 backdrop-blur border border-white/20 text-xs text-white placeholder:text-white/60 outline-none"
         />
         <button onClick={(e) => { e.stopPropagation(); addComment(); }} disabled={!commentText.trim()} className="text-gold disabled:opacity-30">
@@ -358,23 +365,24 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
               <span className="text-sm font-semibold text-champagne">Comments</span>
               <button onClick={() => { setShowComments(false); setReplyTo(null); }}><X className="size-5 text-foreground" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {comments.map(c => (
-                <CommentItem key={c.id} node={c} onReply={(id, username) => setReplyTo({ id, username })} navigate={navigate} />
-              ))}
-              {comments.length === 0 && <p className="text-xs text-muted-foreground text-center mt-8">Be the first to comment 💬</p>}
-            </div>
+            {/* Composer at TOP so the comment list stays easy to read below */}
             {replyTo && (
               <div className="px-4 py-1.5 bg-surface/60 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>Replying to <span className="text-gold">@{replyTo.username}</span></span>
                 <button onClick={() => setReplyTo(null)}><X className="size-3.5" /></button>
               </div>
             )}
-            <div className="flex items-center gap-2 p-3 border-t border-border/30">
+            <div className="flex items-center gap-2 p-3 border-b border-border/30 bg-surface/30">
               <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === "Enter" && addComment()}
-                placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Add a comment..."}
+                placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Add a comment · @ to tag"}
                 className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
               <button onClick={addComment} disabled={!commentText.trim()} className="text-gold disabled:opacity-30"><Send className="size-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {comments.map(c => (
+                <CommentItem key={c.id} node={c} onReply={(id, username) => setReplyTo({ id, username })} navigate={navigate} />
+              ))}
+              {comments.length === 0 && <p className="text-xs text-muted-foreground text-center mt-8">Be the first to comment 💬</p>}
             </div>
           </motion.div>
         )}
@@ -388,7 +396,7 @@ const CommentItem = ({ node, onReply, navigate, depth = 0 }: { node: CommentNode
     <div className="flex flex-col gap-0.5">
       <div className="flex items-baseline gap-2 flex-wrap">
         <button onClick={() => navigate(`/user/${node.user_id}`)} className="text-xs font-semibold text-gold">@{node.username}</button>
-        <span className="text-xs text-foreground/85">{node.content}</span>
+        <TaggedText text={node.content} className="text-xs text-foreground/85" />
       </div>
       <button onClick={() => onReply(node.id, node.username)} className="self-start text-[10px] text-muted-foreground flex items-center gap-1 hover:text-gold">
         <Reply className="size-3" /> Reply
