@@ -161,6 +161,9 @@ const FeedPage = () => {
               showFollow={post.user_id !== user?.id}
               onDelete={() => handlePostDelete(post.id)}
               onEdit={(newContent) => handlePostEdit(post.id, newContent)}
+              unlockPrice={post.unlock_price || 0}
+              isPoll={post.is_poll || false}
+              pollOptions={post.poll_options || null}
             />
             {/* Show ad every 5 posts */}
             {(index + 1) % 5 === 0 && <FeedAd />}
