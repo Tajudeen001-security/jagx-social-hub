@@ -612,6 +612,54 @@ export type Database = {
         }
         Relationships: []
       }
+      poll_votes: {
+        Row: {
+          created_at: string
+          id: string
+          option_index: number
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_index: number
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_index?: number
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_unlocks: {
+        Row: {
+          coin_amount: number
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          coin_amount?: number
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          coin_amount?: number
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           content: string | null
@@ -619,8 +667,11 @@ export type Database = {
           hashtags: string[] | null
           id: string
           image_url: string | null
+          is_poll: boolean
           pinned_at: string | null
+          poll_options: Json | null
           post_type: string
+          unlock_price: number
           updated_at: string
           user_id: string
           video_url: string | null
@@ -632,8 +683,11 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           image_url?: string | null
+          is_poll?: boolean
           pinned_at?: string | null
+          poll_options?: Json | null
           post_type?: string
+          unlock_price?: number
           updated_at?: string
           user_id: string
           video_url?: string | null
@@ -645,8 +699,11 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           image_url?: string | null
+          is_poll?: boolean
           pinned_at?: string | null
+          poll_options?: Json | null
           post_type?: string
+          unlock_price?: number
           updated_at?: string
           user_id?: string
           video_url?: string | null
