@@ -223,6 +223,15 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
     const payload: any = { post_id: reel.id, user_id: user.id, content: commentText.trim() };
     if (replyTo) payload.parent_id = replyTo.id;
     await supabase.from("comments").insert(payload);
+    if (reel.user_id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: reel.user_id,
+        from_user_id: user.id,
+        type: "comment",
+        content: `commented: ${commentText.trim().slice(0, 60)}`,
+        related_post_id: reel.id,
+      });
+    }
     setCommentText(""); setReplyTo(null); loadComments();
   };
 
@@ -236,7 +245,13 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
   const followUser = async () => {
     if (!user) return;
     const { error } = await supabase.from("followers").insert({ follower_id: user.id, following_id: reel.user_id });
-    if (error && error.code !== "23505") toast.error("Failed to follow"); else toast.success(`Following @${reel.username}`);
+    if (error && error.code !== "23505") { toast.error("Failed to follow"); return; }
+    toast.success(`Following @${reel.username}`);
+    if (reel.user_id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: reel.user_id, from_user_id: user.id, type: "follow", content: "started following you",
+      });
+    }
   };
 
   const handleVideoTap = () => {
