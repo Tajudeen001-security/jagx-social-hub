@@ -29,6 +29,7 @@ import GroupChatPage from "./pages/GroupChatPage";
 import EarningsPage from "./pages/EarningsPage";
 import AdsPage from "./pages/AdsPage";
 import AdminPage from "./pages/AdminPage";
+import PostDetailPage from "./pages/PostDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +89,7 @@ const AppContent = () => {
         <Route path="/earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
         <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+        <Route path="/post/:postId" element={<ProtectedRoute><PostDetailPage /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
