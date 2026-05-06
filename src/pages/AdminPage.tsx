@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch, BarChart3 } from "lucide-react";
 import { setConsent } from "@/components/CookieConsent";
 
 const AdminPage = () => {
@@ -11,11 +11,18 @@ const AdminPage = () => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger" | "seo">("users");
+  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger" | "seo" | "analytics">("users");
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<{
+    loading: boolean;
+    unlocks: any[];
+    coinSpend: { gifts: number; unlocks: number; ads: number };
+    engagement: { likes: number; comments: number; views: number; posts: number };
+    polls: any[];
+  }>({ loading: false, unlocks: [], coinSpend: { gifts: 0, unlocks: 0, ads: 0 }, engagement: { likes: 0, comments: 0, views: 0, posts: 0 }, polls: [] });
   const [search, setSearch] = useState("");
   const [seoChecks, setSeoChecks] = useState<{
     metaTag: boolean | null;
@@ -203,6 +210,68 @@ const AdminPage = () => {
     if (ledgerRes.data) setLedger(ledgerRes.data as any[]);
   };
 
+  const loadAnalytics = async () => {
+    setAnalytics(a => ({ ...a, loading: true }));
+    const [unlocksRes, giftsRes, adsRes, likesRes, commentsRes, postsRes, pollsRes, votesRes] = await Promise.all([
+      supabase.from("post_unlocks").select("post_id, user_id, coin_amount, created_at").order("created_at", { ascending: false }),
+      supabase.from("gifts").select("coin_amount"),
+      supabase.from("ads").select("coin_cost"),
+      supabase.from("likes").select("post_id"),
+      supabase.from("comments").select("post_id"),
+      supabase.from("posts").select("id, content, view_count, is_poll, poll_options, unlock_price, user_id, created_at"),
+      supabase.from("posts").select("id, content, poll_options, user_id").eq("is_poll", true),
+      supabase.from("poll_votes").select("post_id, option_index"),
+    ]);
+
+    // Aggregate unlock revenue per post
+    const unlockByPost = new Map<string, { count: number; revenue: number }>();
+    (unlocksRes.data || []).forEach((u: any) => {
+      const p = unlockByPost.get(u.post_id) || { count: 0, revenue: 0 };
+      p.count += 1; p.revenue += u.coin_amount || 0;
+      unlockByPost.set(u.post_id, p);
+    });
+    const postMap = new Map((postsRes.data || []).map((p: any) => [p.id, p]));
+    const unlockRows = Array.from(unlockByPost.entries())
+      .map(([postId, agg]) => {
+        const p: any = postMap.get(postId);
+        return { postId, count: agg.count, revenue: agg.revenue, content: p?.content?.slice(0, 60) || "(post)", price: p?.unlock_price || 0 };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const coinSpend = {
+      gifts: (giftsRes.data || []).reduce((s: number, g: any) => s + (g.coin_amount || 0), 0),
+      unlocks: (unlocksRes.data || []).reduce((s: number, u: any) => s + (u.coin_amount || 0), 0),
+      ads: (adsRes.data || []).reduce((s: number, a: any) => s + (a.coin_cost || 0), 0),
+    };
+    const engagement = {
+      likes: likesRes.data?.length || 0,
+      comments: commentsRes.data?.length || 0,
+      views: (postsRes.data || []).reduce((s: number, p: any) => s + (p.view_count || 0), 0),
+      posts: postsRes.data?.length || 0,
+    };
+
+    // Polls — vote tallies per option
+    const votesByPost = new Map<string, Map<number, number>>();
+    (votesRes.data || []).forEach((v: any) => {
+      const m = votesByPost.get(v.post_id) || new Map();
+      m.set(v.option_index, (m.get(v.option_index) || 0) + 1);
+      votesByPost.set(v.post_id, m);
+    });
+    const polls = (pollsRes.data || []).map((p: any) => {
+      const tally = votesByPost.get(p.id) || new Map();
+      const options = (p.poll_options || []).map((opt: any, idx: number) => ({
+        label: typeof opt === "string" ? opt : opt?.text || `Option ${idx + 1}`,
+        votes: tally.get(idx) || 0,
+      }));
+      const total = options.reduce((s: number, o: any) => s + o.votes, 0);
+      return { id: p.id, content: p.content?.slice(0, 60) || "(poll)", options, total };
+    }).sort((a, b) => b.total - a.total);
+
+    setAnalytics({ loading: false, unlocks: unlockRows, coinSpend, engagement, polls });
+  };
+
+  useEffect(() => { if (tab === "analytics" && isAdmin) loadAnalytics(); /* eslint-disable-next-line */ }, [tab, isAdmin]);
+
   const exportLedgerCsv = () => {
     if (ledger.length === 0) { toast.error("Nothing to export"); return; }
     const headers = ["created_at","gift_id","sender_username","recipient_username","debit_amount","creator_credit","platform_fee","gift_type","live_stream_id","post_id"];
@@ -288,6 +357,7 @@ const AdminPage = () => {
           { key: "verification", icon: BadgeCheck, label: "Verify" },
           { key: "transactions", icon: Coins, label: "Withdrawals" },
           { key: "ledger", icon: Receipt, label: "Ledger" },
+          { key: "analytics", icon: BarChart3, label: "Analytics" },
           { key: "seo", icon: Globe, label: "SEO" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
@@ -769,6 +839,102 @@ const AdminPage = () => {
                 <span className="text-sm text-foreground">Reset consent banner</span>
                 <span className="text-[10px] font-bold uppercase text-gold">Reset</span>
               </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "analytics" && (
+          <div className="space-y-4">
+            <button onClick={loadAnalytics} disabled={analytics.loading}
+              className="w-full py-2 rounded-xl bg-surface border border-border text-xs font-bold uppercase tracking-widest text-foreground flex items-center justify-center gap-2">
+              <RefreshCw className={`size-3 ${analytics.loading ? "animate-spin" : ""}`} /> Refresh analytics
+            </button>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Coin Spend</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Gifts</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.gifts.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Unlocks</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.unlocks.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Ads</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.ads.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Engagement</p>
+              <div className="grid grid-cols-4 gap-2">
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Posts</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.posts}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Likes</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.likes}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Comments</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.comments}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Views</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.views}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Post Unlock Revenue (per post)</p>
+              <div className="space-y-2">
+                {analytics.unlocks.length === 0 && <p className="text-xs text-muted-foreground">No paid unlocks yet.</p>}
+                {analytics.unlocks.slice(0, 25).map(u => (
+                  <div key={u.postId} className="p-3 rounded-xl bg-surface border border-border/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-foreground truncate">{u.content}</p>
+                      <span className="text-xs font-bold text-gold whitespace-nowrap">🪙 {u.revenue.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {u.count} unlocks · price 🪙{u.price}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Poll Performance</p>
+              <div className="space-y-2">
+                {analytics.polls.length === 0 && <p className="text-xs text-muted-foreground">No polls yet.</p>}
+                {analytics.polls.slice(0, 25).map(p => (
+                  <div key={p.id} className="p-3 rounded-xl bg-surface border border-border/30 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-foreground truncate">{p.content}</p>
+                      <span className="text-[10px] font-bold uppercase text-gold whitespace-nowrap">{p.total} votes</span>
+                    </div>
+                    {p.options.map((o: any, i: number) => {
+                      const pct = p.total > 0 ? Math.round((o.votes / p.total) * 100) : 0;
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center justify-between text-[11px] text-foreground">
+                            <span className="truncate">{o.label}</span>
+                            <span className="text-muted-foreground">{o.votes} · {pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-background/60 overflow-hidden">
+                            <div className="h-full gold-gradient" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
