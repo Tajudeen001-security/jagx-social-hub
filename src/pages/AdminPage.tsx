@@ -909,7 +909,7 @@ const AdminPage = () => {
                       <span className="text-xs font-bold text-gold whitespace-nowrap">🪙 {u.revenue.toLocaleString()}</span>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {u.count} unlocks · price 🪙{u.price}
+                      Price 🪙{u.price} · {u.count} unlocks · {u.uniqueUsers} unique {u.uniqueUsers === 1 ? "buyer" : "buyers"}
                     </p>
                   </div>
                 ))}
