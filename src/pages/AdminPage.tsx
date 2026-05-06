@@ -842,6 +842,102 @@ const AdminPage = () => {
             </div>
           </div>
         )}
+
+        {tab === "analytics" && (
+          <div className="space-y-4">
+            <button onClick={loadAnalytics} disabled={analytics.loading}
+              className="w-full py-2 rounded-xl bg-surface border border-border text-xs font-bold uppercase tracking-widest text-foreground flex items-center justify-center gap-2">
+              <RefreshCw className={`size-3 ${analytics.loading ? "animate-spin" : ""}`} /> Refresh analytics
+            </button>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Coin Spend</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Gifts</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.gifts.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Unlocks</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.unlocks.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Ads</p>
+                  <p className="text-sm font-bold text-gold">🪙 {analytics.coinSpend.ads.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Engagement</p>
+              <div className="grid grid-cols-4 gap-2">
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Posts</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.posts}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Likes</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.likes}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Comments</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.comments}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border/30">
+                  <p className="text-[10px] uppercase text-muted-foreground">Views</p>
+                  <p className="text-sm font-bold text-foreground">{analytics.engagement.views}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Post Unlock Revenue (per post)</p>
+              <div className="space-y-2">
+                {analytics.unlocks.length === 0 && <p className="text-xs text-muted-foreground">No paid unlocks yet.</p>}
+                {analytics.unlocks.slice(0, 25).map(u => (
+                  <div key={u.postId} className="p-3 rounded-xl bg-surface border border-border/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-foreground truncate">{u.content}</p>
+                      <span className="text-xs font-bold text-gold whitespace-nowrap">🪙 {u.revenue.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {u.count} unlocks · price 🪙{u.price}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Poll Performance</p>
+              <div className="space-y-2">
+                {analytics.polls.length === 0 && <p className="text-xs text-muted-foreground">No polls yet.</p>}
+                {analytics.polls.slice(0, 25).map(p => (
+                  <div key={p.id} className="p-3 rounded-xl bg-surface border border-border/30 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-foreground truncate">{p.content}</p>
+                      <span className="text-[10px] font-bold uppercase text-gold whitespace-nowrap">{p.total} votes</span>
+                    </div>
+                    {p.options.map((o: any, i: number) => {
+                      const pct = p.total > 0 ? Math.round((o.votes / p.total) * 100) : 0;
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center justify-between text-[11px] text-foreground">
+                            <span className="truncate">{o.label}</span>
+                            <span className="text-muted-foreground">{o.votes} · {pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-background/60 overflow-hidden">
+                            <div className="h-full gold-gradient" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
