@@ -223,18 +223,26 @@ const AdminPage = () => {
       supabase.from("poll_votes").select("post_id, option_index"),
     ]);
 
-    // Aggregate unlock revenue per post
-    const unlockByPost = new Map<string, { count: number; revenue: number }>();
+    // Aggregate unlock revenue per post (count, unique buyers, revenue)
+    const unlockByPost = new Map<string, { count: number; revenue: number; users: Set<string> }>();
     (unlocksRes.data || []).forEach((u: any) => {
-      const p = unlockByPost.get(u.post_id) || { count: 0, revenue: 0 };
+      const p = unlockByPost.get(u.post_id) || { count: 0, revenue: 0, users: new Set<string>() };
       p.count += 1; p.revenue += u.coin_amount || 0;
+      if (u.user_id) p.users.add(u.user_id);
       unlockByPost.set(u.post_id, p);
     });
     const postMap = new Map((postsRes.data || []).map((p: any) => [p.id, p]));
     const unlockRows = Array.from(unlockByPost.entries())
       .map(([postId, agg]) => {
         const p: any = postMap.get(postId);
-        return { postId, count: agg.count, revenue: agg.revenue, content: p?.content?.slice(0, 60) || "(post)", price: p?.unlock_price || 0 };
+        return {
+          postId,
+          count: agg.count,
+          uniqueUsers: agg.users.size,
+          revenue: agg.revenue,
+          content: p?.content?.slice(0, 60) || "(post)",
+          price: p?.unlock_price || 0,
+        };
       })
       .sort((a, b) => b.revenue - a.revenue);
 
