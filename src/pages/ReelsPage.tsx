@@ -39,6 +39,7 @@ const ReelsPage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   // Reels always play with sound — never muted
   const isMuted = false;
+  const [showComposer, setShowComposer] = useState(false);
 
   useEffect(() => { loadReels(); }, [user?.id]);
 
@@ -122,6 +123,15 @@ const ReelsPage = () => {
         )}
       </div>
       <BottomNav />
+      <AnimatePresence>
+        {showComposer && (
+          <QuickReelComposer
+            user={user}
+            onClose={() => setShowComposer(false)}
+            onPosted={() => { setShowComposer(false); loadReels(); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
