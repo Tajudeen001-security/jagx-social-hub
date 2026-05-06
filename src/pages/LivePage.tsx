@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Radio, Eye, Coins, Send, X, MonitorUp, UserPlus } from "lucide-react";
+import { ArrowLeft, Radio, Eye, Coins, Send, X, MonitorUp, UserPlus, Maximize2, Minimize2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,23 @@ const LivePage = () => {
   const [quality, setQuality] = useState<StreamQuality>("auto");
   const [showInvite, setShowInvite] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) await stageRef.current?.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch (e: any) {
+      toast.error("Fullscreen not supported");
+    }
+  };
 
   const coinOptions = [10, 50, 100, 500, 1000];
 
@@ -125,7 +142,7 @@ const LivePage = () => {
     const isPublisher = !!(myStream && myStream.id === activeStream.id);
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <div className="relative aspect-video bg-surface">
+        <div ref={stageRef} className={`relative bg-surface ${isFullscreen ? "h-full w-full" : "aspect-video"}`}>
           <LiveRoom
             ref={liveRoomRef}
             roomName={`stream-${activeStream.id}`}
@@ -147,6 +164,9 @@ const LivePage = () => {
                 <Eye className="size-3" /><span className="text-[10px] font-bold">{activeStream.viewer_count || 0}</span>
               </div>
               {!isPublisher && <QualitySwitcher value={quality} onChange={setQuality} />}
+              <button onClick={toggleFullscreen} className="size-7 rounded-full glass flex items-center justify-center text-foreground" aria-label="Toggle fullscreen">
+                {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+              </button>
             </div>
           </div>
           <div className="absolute bottom-3 left-3 flex items-center gap-2">
