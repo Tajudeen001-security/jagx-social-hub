@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Volume2, VolumeX, Bookmark, Pause, Play, Reply } from "lucide-react";
+import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Bookmark, Play, Reply } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,7 +37,8 @@ const ReelsPage = () => {
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  // Reels always play with sound — never muted
+  const isMuted = false;
 
   useEffect(() => { loadReels(); }, [user?.id]);
 
@@ -101,13 +102,10 @@ const ReelsPage = () => {
       }} />
       <div className="fixed top-0 left-0 right-0 z-40 flex justify-between items-center px-4 py-3 bg-gradient-to-b from-background/80 to-transparent pointer-events-none">
         <h1 className="font-display italic text-lg text-gold pointer-events-auto">Reels</h1>
-        <button onClick={() => setIsMuted(!isMuted)} className="text-foreground pointer-events-auto p-2 rounded-full bg-black/30 backdrop-blur">
-          {isMuted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
-        </button>
       </div>
       <div ref={containerRef} onScroll={handleScroll} className="h-screen snap-y snap-mandatory overflow-y-auto">
         {reels.map((reel, i) => (
-          <ReelItem key={reel.id} reel={reel} isActive={i === currentIndex} user={user} navigate={navigate} isMuted={isMuted} onToggleMute={() => setIsMuted(!isMuted)} />
+          <ReelItem key={reel.id} reel={reel} isActive={i === currentIndex} user={user} navigate={navigate} isMuted={isMuted} onToggleMute={() => {}} />
         ))}
         {reels.length === 0 && (
           <div className="h-screen flex items-center justify-center">
