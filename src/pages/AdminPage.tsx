@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch } from "lucide-react";
+import { Shield, Users, BadgeCheck, Coins, Trash2, CheckCircle, XCircle, ArrowLeft, Search, Download, Receipt, Globe, ExternalLink, RefreshCw, Cookie, Activity, FileSearch, BarChart3 } from "lucide-react";
 import { setConsent } from "@/components/CookieConsent";
 
 const AdminPage = () => {
@@ -11,11 +11,18 @@ const AdminPage = () => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger" | "seo">("users");
+  const [tab, setTab] = useState<"users" | "verification" | "transactions" | "ledger" | "seo" | "analytics">("users");
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<{
+    loading: boolean;
+    unlocks: any[];
+    coinSpend: { gifts: number; unlocks: number; ads: number };
+    engagement: { likes: number; comments: number; views: number; posts: number };
+    polls: any[];
+  }>({ loading: false, unlocks: [], coinSpend: { gifts: 0, unlocks: 0, ads: 0 }, engagement: { likes: 0, comments: 0, views: 0, posts: 0 }, polls: [] });
   const [search, setSearch] = useState("");
   const [seoChecks, setSeoChecks] = useState<{
     metaTag: boolean | null;
