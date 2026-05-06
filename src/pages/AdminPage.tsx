@@ -210,6 +210,68 @@ const AdminPage = () => {
     if (ledgerRes.data) setLedger(ledgerRes.data as any[]);
   };
 
+  const loadAnalytics = async () => {
+    setAnalytics(a => ({ ...a, loading: true }));
+    const [unlocksRes, giftsRes, adsRes, likesRes, commentsRes, postsRes, pollsRes, votesRes] = await Promise.all([
+      supabase.from("post_unlocks").select("post_id, user_id, coin_amount, created_at").order("created_at", { ascending: false }),
+      supabase.from("gifts").select("coin_amount"),
+      supabase.from("ads").select("coin_cost"),
+      supabase.from("likes").select("post_id"),
+      supabase.from("comments").select("post_id"),
+      supabase.from("posts").select("id, content, view_count, is_poll, poll_options, unlock_price, user_id, created_at"),
+      supabase.from("posts").select("id, content, poll_options, user_id").eq("is_poll", true),
+      supabase.from("poll_votes").select("post_id, option_index"),
+    ]);
+
+    // Aggregate unlock revenue per post
+    const unlockByPost = new Map<string, { count: number; revenue: number }>();
+    (unlocksRes.data || []).forEach((u: any) => {
+      const p = unlockByPost.get(u.post_id) || { count: 0, revenue: 0 };
+      p.count += 1; p.revenue += u.coin_amount || 0;
+      unlockByPost.set(u.post_id, p);
+    });
+    const postMap = new Map((postsRes.data || []).map((p: any) => [p.id, p]));
+    const unlockRows = Array.from(unlockByPost.entries())
+      .map(([postId, agg]) => {
+        const p: any = postMap.get(postId);
+        return { postId, count: agg.count, revenue: agg.revenue, content: p?.content?.slice(0, 60) || "(post)", price: p?.unlock_price || 0 };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const coinSpend = {
+      gifts: (giftsRes.data || []).reduce((s: number, g: any) => s + (g.coin_amount || 0), 0),
+      unlocks: (unlocksRes.data || []).reduce((s: number, u: any) => s + (u.coin_amount || 0), 0),
+      ads: (adsRes.data || []).reduce((s: number, a: any) => s + (a.coin_cost || 0), 0),
+    };
+    const engagement = {
+      likes: likesRes.data?.length || 0,
+      comments: commentsRes.data?.length || 0,
+      views: (postsRes.data || []).reduce((s: number, p: any) => s + (p.view_count || 0), 0),
+      posts: postsRes.data?.length || 0,
+    };
+
+    // Polls — vote tallies per option
+    const votesByPost = new Map<string, Map<number, number>>();
+    (votesRes.data || []).forEach((v: any) => {
+      const m = votesByPost.get(v.post_id) || new Map();
+      m.set(v.option_index, (m.get(v.option_index) || 0) + 1);
+      votesByPost.set(v.post_id, m);
+    });
+    const polls = (pollsRes.data || []).map((p: any) => {
+      const tally = votesByPost.get(p.id) || new Map();
+      const options = (p.poll_options || []).map((opt: any, idx: number) => ({
+        label: typeof opt === "string" ? opt : opt?.text || `Option ${idx + 1}`,
+        votes: tally.get(idx) || 0,
+      }));
+      const total = options.reduce((s: number, o: any) => s + o.votes, 0);
+      return { id: p.id, content: p.content?.slice(0, 60) || "(poll)", options, total };
+    }).sort((a, b) => b.total - a.total);
+
+    setAnalytics({ loading: false, unlocks: unlockRows, coinSpend, engagement, polls });
+  };
+
+  useEffect(() => { if (tab === "analytics" && isAdmin) loadAnalytics(); /* eslint-disable-next-line */ }, [tab, isAdmin]);
+
   const exportLedgerCsv = () => {
     if (ledger.length === 0) { toast.error("Nothing to export"); return; }
     const headers = ["created_at","gift_id","sender_username","recipient_username","debit_amount","creator_credit","platform_fee","gift_type","live_stream_id","post_id"];
