@@ -357,6 +357,7 @@ const AdminPage = () => {
           { key: "verification", icon: BadgeCheck, label: "Verify" },
           { key: "transactions", icon: Coins, label: "Withdrawals" },
           { key: "ledger", icon: Receipt, label: "Ledger" },
+          { key: "analytics", icon: BarChart3, label: "Analytics" },
           { key: "seo", icon: Globe, label: "SEO" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
