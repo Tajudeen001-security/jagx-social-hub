@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Bookmark, Play, Reply } from "lucide-react";
+import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Bookmark, Play, Reply, Plus, Upload, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +39,7 @@ const ReelsPage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   // Reels always play with sound — never muted
   const isMuted = false;
+  const [showComposer, setShowComposer] = useState(false);
 
   useEffect(() => { loadReels(); }, [user?.id]);
 
@@ -102,6 +103,14 @@ const ReelsPage = () => {
       }} />
       <div className="fixed top-0 left-0 right-0 z-40 flex justify-between items-center px-4 py-3 bg-gradient-to-b from-background/80 to-transparent pointer-events-none">
         <h1 className="font-display italic text-lg text-gold pointer-events-auto">Reels</h1>
+        {user && (
+          <button
+            onClick={() => setShowComposer(true)}
+            className="pointer-events-auto h-9 px-3 rounded-full gold-gradient text-primary-foreground text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5"
+          >
+            <Plus className="size-3.5" /> New Reel
+          </button>
+        )}
       </div>
       <div ref={containerRef} onScroll={handleScroll} className="h-screen snap-y snap-mandatory overflow-y-auto">
         {reels.map((reel, i) => (
@@ -114,6 +123,15 @@ const ReelsPage = () => {
         )}
       </div>
       <BottomNav />
+      <AnimatePresence>
+        {showComposer && (
+          <QuickReelComposer
+            user={user}
+            onClose={() => setShowComposer(false)}
+            onPosted={() => { setShowComposer(false); loadReels(); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -428,3 +446,82 @@ const CommentItem = ({ node, onReply, navigate, depth = 0 }: { node: CommentNode
 );
 
 export default ReelsPage;
+
+const QuickReelComposer = ({ user, onClose, onPosted }: { user: any; onClose: () => void; onPosted: () => void }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [tags, setTags] = useState("");
+  const [posting, setPosting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onPickFile = (f: File | null) => {
+    if (!f) return;
+    if (!f.type.startsWith("video/")) { toast.error("Pick a video file"); return; }
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+  };
+
+  const submit = async () => {
+    if (!user) { toast.error("Sign in to post"); return; }
+    if (!file) { toast.error("Add a video first"); return; }
+    setPosting(true);
+    try {
+      const ext = file.name.split(".").pop() || "mp4";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("posts").upload(path, file);
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("posts").getPublicUrl(path);
+      const parsedTags = tags.split(/[,\s#]+/).map(t => t.trim()).filter(Boolean);
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        content: caption || null,
+        video_url: publicUrl,
+        post_type: "video",
+        hashtags: parsedTags.length ? parsedTags : null,
+      });
+      if (error) throw error;
+      toast.success("Reel posted! 🎬");
+      onPosted();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to post");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-xl flex flex-col">
+      <div className="flex items-center justify-between px-4 h-14 border-b border-border/30">
+        <button onClick={onClose} className="text-foreground"><X className="size-5" /></button>
+        <h2 className="text-sm font-semibold text-champagne">Quick Reel</h2>
+        <button onClick={submit} disabled={posting || !file}
+          className="px-4 py-1.5 rounded-lg gold-gradient text-primary-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50 flex items-center gap-1.5">
+          {posting ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} Post
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <input ref={fileRef} type="file" accept="video/*" hidden onChange={e => onPickFile(e.target.files?.[0] || null)} />
+        {previewUrl ? (
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-[9/16] max-h-[55vh]">
+            <video src={previewUrl} className="w-full h-full object-cover" controls playsInline />
+            <button onClick={() => fileRef.current?.click()}
+              className="absolute top-2 right-2 px-3 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold uppercase">Change</button>
+          </div>
+        ) : (
+          <button onClick={() => fileRef.current?.click()}
+            className="w-full aspect-[9/16] max-h-[55vh] rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-gold hover:text-gold transition-colors">
+            <Upload className="size-8" />
+            <span className="text-sm font-semibold">Tap to upload a video</span>
+            <span className="text-[10px]">9:16 vertical works best</span>
+          </button>
+        )}
+        <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="Caption · use @ to tag people"
+          rows={3} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none" />
+        <input value={tags} onChange={e => setTags(e.target.value)} placeholder="#hashtags (space or comma separated)"
+          className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+      </div>
+    </motion.div>
+  );
+};
