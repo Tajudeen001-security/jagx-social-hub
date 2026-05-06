@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Bookmark, Play, Reply } from "lucide-react";
+import { Heart, MessageCircle, Share2, Gift, Send, UserPlus, X, Bookmark, Play, Reply, Plus, Upload, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,6 +102,14 @@ const ReelsPage = () => {
       }} />
       <div className="fixed top-0 left-0 right-0 z-40 flex justify-between items-center px-4 py-3 bg-gradient-to-b from-background/80 to-transparent pointer-events-none">
         <h1 className="font-display italic text-lg text-gold pointer-events-auto">Reels</h1>
+        {user && (
+          <button
+            onClick={() => setShowComposer(true)}
+            className="pointer-events-auto h-9 px-3 rounded-full gold-gradient text-primary-foreground text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5"
+          >
+            <Plus className="size-3.5" /> New Reel
+          </button>
+        )}
       </div>
       <div ref={containerRef} onScroll={handleScroll} className="h-screen snap-y snap-mandatory overflow-y-auto">
         {reels.map((reel, i) => (
