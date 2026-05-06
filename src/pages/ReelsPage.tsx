@@ -373,7 +373,11 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
       <AnimatePresence>
         {showComments && (
           <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            className="absolute inset-x-0 bottom-0 top-1/3 bg-background/98 backdrop-blur-xl z-50 flex flex-col rounded-t-3xl border-t border-gold/20">
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-x-0 bottom-0 top-1/4 bg-background/98 backdrop-blur-xl z-50 flex flex-col rounded-t-3xl border-t border-gold/20 overscroll-contain">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
               <span className="text-sm font-semibold text-champagne">Comments</span>
               <button onClick={() => { setShowComments(false); setReplyTo(null); }}><X className="size-5 text-foreground" /></button>
@@ -391,7 +395,7 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
                 className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
               <button onClick={addComment} disabled={!commentText.trim()} className="text-gold disabled:opacity-30"><Send className="size-5" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
               {comments.map(c => (
                 <CommentItem key={c.id} node={c} onReply={(id, username) => setReplyTo({ id, username })} navigate={navigate} />
               ))}
