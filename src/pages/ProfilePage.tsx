@@ -1,6 +1,7 @@
 import { Settings, Grid3X3, Film, Bookmark, Users, BadgeCheck, LogOut, Coins, Edit, TrendingUp, Megaphone, MapPin, Shield, Pin, X, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
+import Canonical from "@/components/Canonical";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +62,7 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen pb-24">
+      <Canonical path={profile?.user_id ? `/user/${profile.user_id}` : "/profile"} />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="text-sm font-semibold text-champagne">

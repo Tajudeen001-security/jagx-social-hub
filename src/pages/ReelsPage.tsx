@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import StructuredData from "@/components/StructuredData";
+import Canonical from "@/components/Canonical";
 import TaggedText from "@/components/TaggedText";
 
 interface Reel {
@@ -93,6 +94,7 @@ const ReelsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Canonical path="/reels" />
       <StructuredData id="reels" data={{
         "@context": "https://schema.org",
         "@type": "ItemList",

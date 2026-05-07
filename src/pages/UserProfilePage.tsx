@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
+import Canonical from "@/components/Canonical";
 
 const UserProfilePage = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -57,6 +58,7 @@ const UserProfilePage = () => {
 
   return (
     <div className="min-h-screen pb-24 bg-background">
+      <Canonical path={`/user/${profile.user_id || ""}`} />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">

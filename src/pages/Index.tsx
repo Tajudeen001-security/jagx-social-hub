@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { timeAgo } from "@/lib/timeAgo";
 import StructuredData from "@/components/StructuredData";
+import Canonical from "@/components/Canonical";
 import NotificationBell from "@/components/NotificationBell";
 import MessageIconBadge from "@/components/MessageIconBadge";
 
@@ -108,6 +109,7 @@ const FeedPage = () => {
 
   return (
     <div className="min-h-screen pb-24">
+      <Canonical path="/" />
       <StructuredData id="home" data={{
         "@context": "https://schema.org",
         "@type": "WebPage",
