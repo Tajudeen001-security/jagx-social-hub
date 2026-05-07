@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 
 const SITE = "https://jagx-buddy-connect.name.ng";
-const VERIFICATION = "HPbR4lJzhWsLx08KzRCNcICTA9hs2F55rsSODKhWT5A";
+const VERIFICATIONS = [
+  "HPbR4lJzhWsLx08KzRCNcICTA9hs2F55rsSODKhWT5A",
+  "Qklb38Qlmn1f5eBxEIPeHH13MMiczi7OpXnuUkQ9a84",
+];
 
 /**
  * Sets <link rel="canonical"> for the current page and re-asserts the Google
@@ -20,14 +23,20 @@ export const Canonical = ({ path }: { path?: string }) => {
     }
     link.href = url;
 
-    // Ensure Google verification tag is present (safety net)
-    let verify = document.querySelector('meta[name="google-site-verification"]') as HTMLMetaElement | null;
-    if (!verify) {
-      verify = document.createElement("meta");
-      verify.name = "google-site-verification";
-      document.head.appendChild(verify);
+    // Ensure ALL Google verification tags are present (safety net) on every
+    // client-side route change as well as hard refreshes.
+    const existing = Array.from(
+      document.querySelectorAll('meta[name="google-site-verification"]')
+    ) as HTMLMetaElement[];
+    const present = new Set(existing.map((m) => m.content));
+    for (const token of VERIFICATIONS) {
+      if (!present.has(token)) {
+        const m = document.createElement("meta");
+        m.name = "google-site-verification";
+        m.content = token;
+        document.head.appendChild(m);
+      }
     }
-    verify.content = VERIFICATION;
   }, [path]);
   return null;
 };
