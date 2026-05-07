@@ -10,6 +10,7 @@ import IncomingCallModal from "@/components/IncomingCallModal";
 import VideoCall from "@/components/VideoCall";
 import CoHostNotice from "@/components/CoHostNotice";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import SeoCheck from "@/components/SeoCheck";
 import CookieConsent from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import ReelsPage from "./pages/ReelsPage";
@@ -48,6 +49,7 @@ const AppContent = () => {
   return (
     <>
       <AnalyticsTracker />
+      <SeoCheck />
       <CookieConsent />
       <IncomingCallModal
         onAccept={(call) => setActiveCall({
