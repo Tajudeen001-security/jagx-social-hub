@@ -27,21 +27,29 @@ Deno.serve(async (req) => {
     { loc: "/auth", priority: "0.4", changefreq: "monthly" },
   ];
 
-  const [{ data: profiles }, { data: posts }] = await Promise.all([
+  const [{ data: profiles }, { data: posts }, { data: reels }] = await Promise.all([
     supabase.from("profiles").select("user_id, username, updated_at").limit(5000),
-    supabase.from("posts").select("id, updated_at, created_at").order("created_at", { ascending: false }).limit(5000),
+    supabase.from("posts").select("id, updated_at, created_at, video_url").is("video_url", null).order("created_at", { ascending: false }).limit(5000),
+    supabase.from("posts").select("id, updated_at, created_at, video_url").not("video_url", "is", null).order("created_at", { ascending: false }).limit(5000),
   ]);
 
+  const nowIso = new Date().toISOString();
   const urls: string[] = [];
   for (const r of staticRoutes) {
-    urls.push(`<url><loc>${origin}${r.loc}</loc><changefreq>${r.changefreq}</changefreq><priority>${r.priority}</priority></url>`);
+    urls.push(`<url><loc>${origin}${r.loc}</loc><lastmod>${nowIso}</lastmod><changefreq>${r.changefreq}</changefreq><priority>${r.priority}</priority></url>`);
   }
   for (const p of profiles || []) {
     if (!p.user_id) continue;
-    urls.push(`<url><loc>${origin}/user/${p.user_id}</loc><changefreq>daily</changefreq><priority>0.6</priority>${p.updated_at ? `<lastmod>${new Date(p.updated_at).toISOString()}</lastmod>` : ""}</url>`);
+    const lm = p.updated_at ? new Date(p.updated_at).toISOString() : nowIso;
+    urls.push(`<url><loc>${origin}/user/${p.user_id}</loc><lastmod>${lm}</lastmod><changefreq>daily</changefreq><priority>0.6</priority></url>`);
   }
   for (const p of posts || []) {
-    urls.push(`<url><loc>${origin}/?post=${p.id}</loc><changefreq>weekly</changefreq><priority>0.5</priority>${p.updated_at || p.created_at ? `<lastmod>${new Date(p.updated_at || p.created_at).toISOString()}</lastmod>` : ""}</url>`);
+    const lm = new Date(p.updated_at || p.created_at || nowIso).toISOString();
+    urls.push(`<url><loc>${origin}/post/${p.id}</loc><lastmod>${lm}</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url>`);
+  }
+  for (const r of reels || []) {
+    const lm = new Date(r.updated_at || r.created_at || nowIso).toISOString();
+    urls.push(`<url><loc>${origin}/reels?v=${r.id}</loc><lastmod>${lm}</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>`);
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
