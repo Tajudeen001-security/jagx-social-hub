@@ -1,6 +1,6 @@
 # JagX Buddy Connect 🌐
 
-![JagX Logo](https://via.placeholder.com/150) <!-- Replace with actual logo URL -->
+![JagX Logo](https://drive.google.com/file/d/1ysGC1TRLRPh6ZwYe3QBoknb3ZFukFIPt/view?usp=drivesdk) <!-- Replace with actual logo URL -->
 > *Connect. Share. Belong.*  
 
 **JagX Buddy Connect** is a vibrant social media platform designed to bring people together through meaningful interactions, real-time connections, and shared experiences. Developed by **JRILISECE**, JagX is more than just a social network — it's a digital community where friendships grow and ideas thrive.
