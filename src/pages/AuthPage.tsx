@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
-type AuthMode = "login" | "signup";
+type AuthMode = "login" | "signup" | "forgot";
 type AuthMethod = "email" | "phone";
+type ForgotStep = "request" | "verify";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -19,6 +20,41 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
+  const [forgotStep, setForgotStep] = useState<ForgotStep>("request");
+  const [newPassword, setNewPassword] = useState("");
+
+  const handleForgotPassword = async () => {
+    setLoading(true);
+    try {
+      if (forgotStep === "request") {
+        // Sends a 6-digit email OTP code via Supabase Auth
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false },
+        });
+        if (error) throw error;
+        setForgotStep("verify");
+        toast.success("We emailed you a 6-digit code");
+      } else {
+        const { error: vErr } = await supabase.auth.verifyOtp({
+          email,
+          token: otp,
+          type: "email",
+        });
+        if (vErr) throw vErr;
+        const { error: uErr } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        if (uErr) throw uErr;
+        toast.success("Password reset. Welcome back!");
+        navigate("/");
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEmailAuth = async () => {
     setLoading(true);
@@ -87,6 +123,7 @@ const AuthPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "forgot") return handleForgotPassword();
     if (method === "email") handleEmailAuth();
     else handlePhoneAuth();
   };
@@ -108,6 +145,7 @@ const AuthPage = () => {
         </div>
 
         {/* Auth method tabs */}
+        {mode !== "forgot" && (
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => { setMethod("email"); setOtpSent(false); }}
@@ -126,6 +164,7 @@ const AuthPage = () => {
             <Phone className="size-4" /> Phone
           </button>
         </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -140,7 +179,7 @@ const AuthPage = () => {
             />
           )}
 
-          {method === "email" ? (
+          {(mode === "forgot" || method === "email") ? (
             <input
               type="email"
               placeholder="Email address"
@@ -148,6 +187,7 @@ const AuthPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm"
               required
+              disabled={mode === "forgot" && forgotStep === "verify"}
             />
           ) : (
             <input
@@ -160,7 +200,7 @@ const AuthPage = () => {
             />
           )}
 
-          {(method === "email" || (method === "phone" && mode === "signup" && !otpSent)) && (
+          {mode !== "forgot" && (method === "email" || (method === "phone" && mode === "signup" && !otpSent)) && (
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -180,14 +220,26 @@ const AuthPage = () => {
             </div>
           )}
 
-          {otpSent && method === "phone" && (
+          {((otpSent && method === "phone") || (mode === "forgot" && forgotStep === "verify")) && (
             <input
               type="text"
-              placeholder="Enter OTP code"
+              placeholder="Enter 6-digit code from email"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm text-center tracking-[0.5em]"
               maxLength={6}
+              required
+            />
+          )}
+
+          {mode === "forgot" && forgotStep === "verify" && (
+            <input
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm"
+              minLength={6}
               required
             />
           )}
@@ -197,19 +249,45 @@ const AuthPage = () => {
             disabled={loading}
             className="w-full py-3.5 rounded-xl gold-gradient text-primary-foreground text-sm font-bold uppercase tracking-widest disabled:opacity-50"
           >
-            {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+            {loading
+              ? "Please wait..."
+              : mode === "forgot"
+                ? (forgotStep === "request" ? "Send 6-digit Code" : "Verify & Reset Password")
+                : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </form>
 
+        {/* Forgot password link */}
+        {mode === "login" && (
+          <p className="text-center text-sm mt-4">
+            <button
+              onClick={() => { setMode("forgot"); setForgotStep("request"); setOtp(""); setNewPassword(""); }}
+              className="text-gold font-semibold"
+              type="button"
+            >
+              Forgot password?
+            </button>
+          </p>
+        )}
+
         {/* Toggle mode */}
         <p className="text-center text-sm text-muted-foreground mt-6">
+          {mode === "forgot" ? (
+            <button onClick={() => setMode("login")} className="text-gold font-semibold" type="button">
+              Back to Sign In
+            </button>
+          ) : (
+          <>
           {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
             onClick={() => setMode(mode === "login" ? "signup" : "login")}
             className="text-gold font-semibold"
+            type="button"
           >
             {mode === "login" ? "Sign Up" : "Sign In"}
           </button>
+          </>
+          )}
         </p>
       </div>
     </div>
