@@ -56,8 +56,11 @@ const EarningsPage = () => {
       return;
     }
     const amount = parseInt(withdrawAmount);
-    if (isNaN(amount) || amount < 100) { toast.error("Minimum withdrawal is 100 coins"); return; }
+    if (isNaN(amount) || amount < 50) { toast.error("Minimum withdrawal is 50 coins (₦500)"); return; }
     if (amount > (profile?.jagx_coins || 0)) { toast.error("Insufficient balance"); return; }
+
+    const fee = Math.floor(amount * 0.1);
+    const payout = amount - fee;
 
     await supabase.from("coin_transactions").insert({
       user_id: user.id,
@@ -67,7 +70,7 @@ const EarningsPage = () => {
       opay_reference: `WD-${Date.now()}`,
     });
 
-    toast.success(`Withdrawal request for ${convertValue(amount)} submitted! You'll be credited to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
+    toast.success(`Withdrawal of ${convertValue(amount)} submitted. After 10% fee you'll receive ${convertValue(payout)} to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
     setShowWithdraw(false);
     setWithdrawAmount("");
   };
