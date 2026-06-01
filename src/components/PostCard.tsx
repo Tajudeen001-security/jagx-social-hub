@@ -281,7 +281,8 @@ const PostCard = ({
             <Heart className={`size-6 ${liked ? "fill-current" : ""}`} />
           </motion.button>
           <button onClick={() => setShowComments(!showComments)} className="text-foreground"><MessageCircle className="size-6" /></button>
-          <button onClick={() => setShowForward(true)} className="text-foreground"><Forward className="size-6" /></button>
+          <button onClick={shareLink} className="text-foreground" aria-label="Share post"><Share2 className="size-6" /></button>
+          <button onClick={() => setShowForward(true)} className="text-foreground" aria-label="Forward to user"><Forward className="size-6" /></button>
           {!isOwner && userId && <button onClick={() => setShowGift(!showGift)} className="text-gold"><Gift className="size-5" /></button>}
         </div>
         <motion.button whileTap={{ scale: 1.2 }} onClick={() => setSaved(!saved)} className={saved ? "text-gold" : "text-foreground"}>
