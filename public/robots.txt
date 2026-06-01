@@ -15,5 +15,3 @@ User-agent: Bingbot
 Allow: /
 
 Sitemap: https://jagx-buddy-connect.name.ng/sitemap.xml
-Sitemap: https://jagx-buddy-connect.vercel.app/sitemap.xml
-Sitemap: https://tmmeymhaxkrvngjfhave.supabase.co/functions/v1/sitemap
