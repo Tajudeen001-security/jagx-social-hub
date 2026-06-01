@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 
 const COIN_PACKAGES = [
-  { coins: 100, price: "₦500" },
-  { coins: 500, price: "₦2,000" },
-  { coins: 1000, price: "₦3,500" },
-  { coins: 5000, price: "₦15,000" },
-  { coins: 10000, price: "₦25,000" },
+  { coins: 100, price: "₦1,000" },
+  { coins: 500, price: "₦4,500" },
+  { coins: 1000, price: "₦8,500" },
+  { coins: 5000, price: "₦40,000" },
+  { coins: 10000, price: "₦75,000" },
 ];
 
 const VERIFICATION_PRICE = "₦10,000";

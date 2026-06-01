@@ -56,8 +56,11 @@ const EarningsPage = () => {
       return;
     }
     const amount = parseInt(withdrawAmount);
-    if (isNaN(amount) || amount < 100) { toast.error("Minimum withdrawal is 100 coins"); return; }
+    if (isNaN(amount) || amount < 50) { toast.error("Minimum withdrawal is 50 coins (₦500)"); return; }
     if (amount > (profile?.jagx_coins || 0)) { toast.error("Insufficient balance"); return; }
+
+    const fee = Math.floor(amount * 0.1);
+    const payout = amount - fee;
 
     await supabase.from("coin_transactions").insert({
       user_id: user.id,
@@ -67,7 +70,7 @@ const EarningsPage = () => {
       opay_reference: `WD-${Date.now()}`,
     });
 
-    toast.success(`Withdrawal request for ${convertValue(amount)} submitted! You'll be credited to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
+    toast.success(`Withdrawal of ${convertValue(amount)} submitted. After 10% fee you'll receive ${convertValue(payout)} to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
     setShowWithdraw(false);
     setWithdrawAmount("");
   };
@@ -115,10 +118,14 @@ const EarningsPage = () => {
               <p className="text-xs text-muted-foreground">Available: {convertValue(profile?.jagx_coins || 0)}</p>
               
               <div className="space-y-3">
-                <input type="number" placeholder="Amount in coins (min 100)" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
+                <input type="number" placeholder="Amount in coins (min 50 = ₦500)" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
                 {withdrawAmount && (
-                  <p className="text-xs text-gold">≈ ₦{(parseInt(withdrawAmount || "0") * COIN_TO_NAIRA).toLocaleString()} / ${(parseInt(withdrawAmount || "0") * COIN_TO_NAIRA * NAIRA_TO_USD).toFixed(2)}</p>
+                  <div className="text-xs space-y-0.5">
+                    <p className="text-muted-foreground">Gross: ₦{(parseInt(withdrawAmount || "0") * COIN_TO_NAIRA).toLocaleString()}</p>
+                    <p className="text-muted-foreground">10% fee: ₦{Math.floor(parseInt(withdrawAmount || "0") * 0.1 * COIN_TO_NAIRA).toLocaleString()}</p>
+                    <p className="text-gold font-semibold">You receive: ₦{Math.floor(parseInt(withdrawAmount || "0") * 0.9 * COIN_TO_NAIRA).toLocaleString()}</p>
+                  </div>
                 )}
                 <input type="text" placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails(p => ({ ...p, bankName: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
@@ -129,7 +136,8 @@ const EarningsPage = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-background border border-border/30">
-                <p className="text-[10px] text-muted-foreground">• Minimum withdrawal: 100 coins (₦1,000)</p>
+                <p className="text-[10px] text-muted-foreground">• Minimum withdrawal: 50 coins (₦500)</p>
+                <p className="text-[10px] text-muted-foreground">• Withdrawal fee: 10%</p>
                 <p className="text-[10px] text-muted-foreground">• Processing time: 24-48 hours</p>
                 <p className="text-[10px] text-muted-foreground">• Credited via OPay to your bank account</p>
               </div>

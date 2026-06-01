@@ -58,6 +58,22 @@ const PostCard = ({
   const isOwner = user?.id === userId;
   const requiresUnlock = !!id && unlockPrice > 0 && !isOwner && !unlocked;
 
+  const shareLink = async () => {
+    if (!id) return;
+    const url = `${window.location.origin}/post/${id}`;
+    const text = caption ? `${caption.slice(0, 100)}${caption.length > 100 ? "…" : ""}` : `Check out @${username} on JagX Buddy Connect`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `@${username} on JagX`, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied!");
+      }
+    } catch {
+      try { await navigator.clipboard.writeText(url); toast.success("Link copied!"); } catch {}
+    }
+  };
+
   useEffect(() => {
     if (!user || !id) return;
     supabase.from("likes").select("id").eq("post_id", id).eq("user_id", user.id).single()
@@ -265,7 +281,8 @@ const PostCard = ({
             <Heart className={`size-6 ${liked ? "fill-current" : ""}`} />
           </motion.button>
           <button onClick={() => setShowComments(!showComments)} className="text-foreground"><MessageCircle className="size-6" /></button>
-          <button onClick={() => setShowForward(true)} className="text-foreground"><Forward className="size-6" /></button>
+          <button onClick={shareLink} className="text-foreground" aria-label="Share post"><Share2 className="size-6" /></button>
+          <button onClick={() => setShowForward(true)} className="text-foreground" aria-label="Forward to user"><Forward className="size-6" /></button>
           {!isOwner && userId && <button onClick={() => setShowGift(!showGift)} className="text-gold"><Gift className="size-5" /></button>}
         </div>
         <motion.button whileTap={{ scale: 1.2 }} onClick={() => setSaved(!saved)} className={saved ? "text-gold" : "text-foreground"}>
