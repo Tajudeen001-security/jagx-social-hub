@@ -62,15 +62,20 @@ const EarningsPage = () => {
     const fee = Math.floor(amount * 0.1);
     const payout = amount - fee;
 
-    await supabase.from("coin_transactions").insert({
+    const { error } = await supabase.from("withdrawal_requests").insert({
       user_id: user.id,
-      amount,
-      transaction_type: "withdrawal",
+      amount_coins: amount,
+      amount_naira: amount * COIN_TO_NAIRA,
+      fee_coins: fee,
+      payout_coins: payout,
+      bank_name: bankDetails.bankName,
+      account_number: bankDetails.accountNumber,
+      account_name: bankDetails.accountName,
       status: "pending",
-      opay_reference: `WD-${Date.now()}`,
     });
+    if (error) { toast.error(error.message); return; }
 
-    toast.success(`Withdrawal of ${convertValue(amount)} submitted. After 10% fee you'll receive ${convertValue(payout)} to ${bankDetails.bankName} - ${bankDetails.accountNumber}`);
+    toast.success(`Withdrawal submitted to admin. You'll receive a notification when it's approved.`);
     setShowWithdraw(false);
     setWithdrawAmount("");
   };
