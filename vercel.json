@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/p/:id", "destination": "https://tmmeymhaxkrvngjfhave.supabase.co/functions/v1/og-post?id=:id" },
     { "source": "/((?!.*\\..*|api/.*).*)", "destination": "/index.html" }
   ]
 }

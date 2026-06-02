@@ -1,4 +1,4 @@
-import { Search, Edit3, Bot, Users, Plus, X } from "lucide-react";
+import { Search, Edit3, Bot, Users, Plus, X, Compass, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,8 @@ const ChatPage = () => {
   const [groups, setGroups] = useState<any[]>([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [groupPublic, setGroupPublic] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -71,10 +73,21 @@ const ChatPage = () => {
 
   const createGroup = async () => {
     if (!groupName.trim() || !user) return;
-    const { data, error } = await supabase.from("group_chats").insert({ name: groupName.trim(), creator_id: user.id }).select().single();
+    const { data, error } = await supabase.from("group_chats").insert({
+      name: groupName.trim(),
+      creator_id: user.id,
+      description: groupDesc.trim() || null,
+      is_public: groupPublic,
+    }).select().single();
     if (error || !data) { toast.error("Failed to create group"); return; }
     await supabase.from("group_members").insert({ group_id: data.id, user_id: user.id, role: "admin" });
-    toast.success("Group created!"); setShowCreateGroup(false); setGroupName("");
+    toast.success("Group created!");
+    setShowCreateGroup(false); setGroupName(""); setGroupDesc(""); setGroupPublic(true);
+    try {
+      const inviteUrl = `${window.location.origin}/g/${(data as any).invite_code}`;
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success("Invite link copied to clipboard");
+    } catch {}
     navigate(`/group/${data.id}`);
   };
 
@@ -96,6 +109,7 @@ const ChatPage = () => {
           <h1 className="font-display italic text-xl text-gold">Messages</h1>
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/ai-chat")} className="text-gold"><Bot className="size-5" /></button>
+            <button onClick={() => navigate("/groups")} className="text-foreground" aria-label="Discover groups"><Compass className="size-5" /></button>
             <button onClick={() => setShowCreateGroup(true)} className="text-foreground"><Users className="size-5" /></button>
             <button className="text-foreground"><Edit3 className="size-5" /></button>
           </div>
@@ -202,9 +216,15 @@ const ChatPage = () => {
               <button onClick={() => setShowCreateGroup(false)}><X className="size-5 text-foreground" /></button>
             </div>
             <input type="text" placeholder="Group name..." value={groupName} onChange={e => setGroupName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && createGroup()}
               className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none mb-4" />
+            <textarea placeholder="Description (optional)" value={groupDesc} onChange={e => setGroupDesc(e.target.value)} rows={2}
+              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none mb-4 resize-none" />
+            <label className="flex items-center gap-2 mb-4 text-xs text-foreground">
+              <input type="checkbox" checked={groupPublic} onChange={e => setGroupPublic(e.target.checked)} className="accent-gold" />
+              Public &amp; discoverable (shareable invite link)
+            </label>
             <button onClick={createGroup} disabled={!groupName.trim()} className="w-full py-3 rounded-xl gold-gradient text-primary-foreground font-bold text-sm disabled:opacity-50">Create Group</button>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center">An invite link will be copied to your clipboard</p>
           </div>
         </div>
       )}

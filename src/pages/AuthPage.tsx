@@ -6,7 +6,7 @@ import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 type AuthMode = "login" | "signup" | "forgot";
 type AuthMethod = "email" | "phone";
-type ForgotStep = "request" | "verify";
+type CodeStep = "request" | "verify";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -20,7 +20,8 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
-  const [forgotStep, setForgotStep] = useState<ForgotStep>("request");
+  const [forgotStep, setForgotStep] = useState<CodeStep>("request");
+  const [signupStep, setSignupStep] = useState<CodeStep>("request");
   const [newPassword, setNewPassword] = useState("");
 
   const handleForgotPassword = async () => {
@@ -60,17 +61,29 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { username, display_name: username },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-        toast.success("Welcome to JagX! 🐆");
-        navigate("/");
+        // 6-digit email code flow (no magic link)
+        if (signupStep === "request") {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: true,
+              data: { username, display_name: username },
+            },
+          });
+          if (error) throw error;
+          setSignupStep("verify");
+          toast.success("We emailed you a 6-digit code");
+        } else {
+          const { error: vErr } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+          if (vErr) throw vErr;
+          // Set password so future logins work
+          if (password) {
+            const { error: uErr } = await supabase.auth.updateUser({ password });
+            if (uErr) throw uErr;
+          }
+          toast.success("Welcome to JagX! 🐆");
+          navigate("/");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -220,7 +233,7 @@ const AuthPage = () => {
             </div>
           )}
 
-          {((otpSent && method === "phone") || (mode === "forgot" && forgotStep === "verify")) && (
+          {((otpSent && method === "phone") || (mode === "forgot" && forgotStep === "verify") || (mode === "signup" && signupStep === "verify" && method === "email")) && (
             <input
               type="text"
               placeholder="Enter 6-digit code from email"
@@ -253,7 +266,9 @@ const AuthPage = () => {
               ? "Please wait..."
               : mode === "forgot"
                 ? (forgotStep === "request" ? "Send 6-digit Code" : "Verify & Reset Password")
-                : mode === "login" ? "Sign In" : "Create Account"}
+                : mode === "login"
+                  ? "Sign In"
+                  : (signupStep === "request" ? "Send 6-digit Code" : "Verify & Create Account")}
           </button>
         </form>
 

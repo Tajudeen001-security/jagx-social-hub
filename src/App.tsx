@@ -31,6 +31,8 @@ import EarningsPage from "./pages/EarningsPage";
 import AdsPage from "./pages/AdsPage";
 import AdminPage from "./pages/AdminPage";
 import PostDetailPage from "./pages/PostDetailPage";
+import GroupDiscoverPage from "./pages/GroupDiscoverPage";
+import JoinGroupPage from "./pages/JoinGroupPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +76,8 @@ const AppContent = () => {
       )}
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/groups" element={<GroupDiscoverPage />} />
+        <Route path="/g/:code" element={<JoinGroupPage />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/reels" element={<ProtectedRoute><ReelsPage /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
