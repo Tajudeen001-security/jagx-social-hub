@@ -354,7 +354,10 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           creator_id: string
+          description: string | null
           id: string
+          invite_code: string
+          is_public: boolean
           name: string
           updated_at: string
         }
@@ -362,7 +365,10 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           creator_id: string
+          description?: string | null
           id?: string
+          invite_code?: string
+          is_public?: boolean
           name: string
           updated_at?: string
         }
@@ -370,7 +376,10 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           creator_id?: string
+          description?: string | null
           id?: string
+          invite_code?: string
+          is_public?: boolean
           name?: string
           updated_at?: string
         }
@@ -910,6 +919,57 @@ export type Database = {
           payment_proof_url?: string | null
           status?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_requests: {
+        Row: {
+          account_name: string
+          account_number: string
+          admin_notes: string | null
+          amount_coins: number
+          amount_naira: number
+          bank_name: string
+          created_at: string
+          fee_coins: number
+          id: string
+          payout_coins: number
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          admin_notes?: string | null
+          amount_coins: number
+          amount_naira: number
+          bank_name: string
+          created_at?: string
+          fee_coins?: number
+          id?: string
+          payout_coins: number
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          admin_notes?: string | null
+          amount_coins?: number
+          amount_naira?: number
+          bank_name?: string
+          created_at?: string
+          fee_coins?: number
+          id?: string
+          payout_coins?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: []
