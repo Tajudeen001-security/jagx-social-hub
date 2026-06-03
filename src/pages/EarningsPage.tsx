@@ -56,7 +56,7 @@ const EarningsPage = () => {
       return;
     }
     const amount = parseInt(withdrawAmount);
-    if (isNaN(amount) || amount < 50) { toast.error("Minimum withdrawal is 50 coins (₦500)"); return; }
+    if (isNaN(amount) || amount < 2000) { toast.error("Minimum withdrawal is 2,000 coins (₦20,000)"); return; }
     if (amount > (profile?.jagx_coins || 0)) { toast.error("Insufficient balance"); return; }
 
     const fee = Math.floor(amount * 0.1);
@@ -123,7 +123,7 @@ const EarningsPage = () => {
               <p className="text-xs text-muted-foreground">Available: {convertValue(profile?.jagx_coins || 0)}</p>
               
               <div className="space-y-3">
-                <input type="number" placeholder="Amount in coins (min 50 = ₦500)" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
+                <input type="number" placeholder="Amount in coins (min 2,000 = ₦20,000)" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
                 {withdrawAmount && (
                   <div className="text-xs space-y-0.5">
@@ -141,7 +141,7 @@ const EarningsPage = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-background border border-border/30">
-                <p className="text-[10px] text-muted-foreground">• Minimum withdrawal: 50 coins (₦500)</p>
+                <p className="text-[10px] text-muted-foreground">• Minimum withdrawal: 2,000 coins (₦20,000)</p>
                 <p className="text-[10px] text-muted-foreground">• Withdrawal fee: 10%</p>
                 <p className="text-[10px] text-muted-foreground">• Processing time: 24-48 hours</p>
                 <p className="text-[10px] text-muted-foreground">• Credited via OPay to your bank account</p>

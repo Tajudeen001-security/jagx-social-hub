@@ -15,6 +15,7 @@ const AdminPage = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<{
     loading: boolean;
@@ -198,15 +199,17 @@ const AdminPage = () => {
   };
 
   const loadData = async () => {
-    const [profilesRes, verificationsRes, transactionsRes, ledgerRes] = await Promise.all([
+    const [profilesRes, verificationsRes, transactionsRes, withdrawalsRes, ledgerRes] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("verification_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("coin_transactions").select("*").eq("transaction_type", "withdrawal").order("created_at", { ascending: false }),
+      supabase.from("withdrawal_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("gift_ledger" as any).select("*").order("created_at", { ascending: false }).limit(1000),
     ]);
     if (profilesRes.data) setUsers(profilesRes.data);
     if (verificationsRes.data) setVerifications(verificationsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data);
     if (ledgerRes.data) setLedger(ledgerRes.data as any[]);
   };
 
