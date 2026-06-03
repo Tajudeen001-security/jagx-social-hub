@@ -293,6 +293,23 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
 
   const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
+  const shareReel = async () => {
+    const url = `${window.location.origin}/p/${reel.id}`;
+    const text = reel.content
+      ? `${reel.content.slice(0, 100)}${reel.content.length > 100 ? "…" : ""}`
+      : `Watch @${reel.username} on JagX Buddy Connect`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `@${reel.username} on JagX`, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Reel link copied!");
+      }
+    } catch {
+      try { await navigator.clipboard.writeText(url); toast.success("Reel link copied!"); } catch {}
+    }
+  };
+
   return (
     <div className="relative h-screen snap-start bg-black overflow-hidden">
       <video ref={videoRef} src={reel.video_url} className="absolute inset-0 w-full h-full object-cover"
@@ -349,7 +366,10 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
         <button onClick={() => setShowGift(!showGift)} className="flex flex-col items-center gap-0.5">
           <Gift className="size-6 text-gold drop-shadow" /><span className="text-[10px] font-semibold text-gold">Gift</span>
         </button>
-        <button className="flex flex-col items-center gap-0.5"><Share2 className="size-7 text-white drop-shadow" /></button>
+        <button onClick={shareReel} className="flex flex-col items-center gap-0.5">
+          <Share2 className="size-7 text-white drop-shadow" />
+          <span className="text-[10px] font-semibold text-white drop-shadow">Share</span>
+        </button>
       </div>
 
       {/* Username + caption — leave room on right for action rail */}

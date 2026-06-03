@@ -15,6 +15,7 @@ const AdminPage = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<{
     loading: boolean;
@@ -198,15 +199,17 @@ const AdminPage = () => {
   };
 
   const loadData = async () => {
-    const [profilesRes, verificationsRes, transactionsRes, ledgerRes] = await Promise.all([
+    const [profilesRes, verificationsRes, transactionsRes, withdrawalsRes, ledgerRes] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("verification_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("coin_transactions").select("*").eq("transaction_type", "withdrawal").order("created_at", { ascending: false }),
+      supabase.from("withdrawal_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("gift_ledger" as any).select("*").order("created_at", { ascending: false }).limit(1000),
     ]);
     if (profilesRes.data) setUsers(profilesRes.data);
     if (verificationsRes.data) setVerifications(verificationsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data);
     if (ledgerRes.data) setLedger(ledgerRes.data as any[]);
   };
 
@@ -279,6 +282,17 @@ const AdminPage = () => {
   };
 
   useEffect(() => { if (tab === "analytics" && isAdmin) loadAnalytics(); /* eslint-disable-next-line */ }, [tab, isAdmin]);
+
+  // Real-time: refresh withdrawal/verification requests as users submit them
+  useEffect(() => {
+    if (!isAdmin) return;
+    const ch = supabase
+      .channel("admin-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawal_requests" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "verification_requests" }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [isAdmin]);
 
   const exportLedgerCsv = () => {
     if (ledger.length === 0) { toast.error("Nothing to export"); return; }
@@ -432,15 +446,19 @@ const AdminPage = () => {
                 {v.status === "pending" && (
                   <div className="flex gap-2">
                     <button onClick={async () => {
-                      await supabase.from("profiles").update({ is_verified: true }).eq("user_id", v.user_id);
-                      // Can't update verification_requests due to RLS - handled via admin
-                      toast.success("Approved!");
+                      const { error } = await supabase.from("verification_requests").update({ status: "approved" }).eq("id", v.id);
+                      if (error) { toast.error(error.message); return; }
+                      toast.success("Approved — user notified in real time ✅");
                       loadData();
                     }} className="flex-1 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase">
                       Approve
                     </button>
-                    <button onClick={() => { toast.info("Rejected"); loadData(); }}
-                      className="flex-1 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase">
+                    <button onClick={async () => {
+                      const { error } = await supabase.from("verification_requests").update({ status: "rejected" }).eq("id", v.id);
+                      if (error) { toast.error(error.message); return; }
+                      toast.success("Rejected — user notified");
+                      loadData();
+                    }} className="flex-1 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase">
                       Reject
                     </button>
                   </div>
@@ -453,22 +471,53 @@ const AdminPage = () => {
 
         {tab === "transactions" && (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">{transactions.length} withdrawal requests</p>
-            {transactions.map(t => (
-              <div key={t.id} className="p-3 rounded-xl bg-surface border border-border/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-foreground font-semibold">{t.amount} coins</p>
-                    <p className="text-xs text-muted-foreground">₦{(t.amount * 10).toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">{withdrawals.length} withdrawal requests</p>
+            {withdrawals.map((w) => {
+              const updateStatus = async (status: "approved" | "rejected" | "paid") => {
+                let admin_notes: string | null = null;
+                if (status === "rejected") {
+                  admin_notes = prompt("Reason for rejection (shown to user):") || "Rejected by admin";
+                }
+                const { error } = await supabase.from("withdrawal_requests").update({
+                  status, admin_notes,
+                  processed_by: user!.id, processed_at: new Date().toISOString(),
+                } as any).eq("id", w.id);
+                if (error) { toast.error(error.message); return; }
+                toast.success(`Marked ${status} — user notified in real time`);
+                loadData();
+              };
+              return (
+                <div key={w.id} className="p-3 rounded-xl bg-surface border border-border/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gold">₦{w.amount_naira?.toLocaleString()} <span className="text-xs text-muted-foreground">({w.amount_coins} coins)</span></p>
+                      <p className="text-[10px] text-muted-foreground">Payout: ₦{((w.payout_coins||0)*10).toLocaleString()} • Fee: ₦{((w.fee_coins||0)*10).toLocaleString()}</p>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${w.status === "paid" ? "bg-green-500/20 text-green-400" : w.status === "approved" ? "bg-blue-500/20 text-blue-400" : w.status === "rejected" ? "bg-red-500/20 text-red-400" : "bg-gold/20 text-gold"}`}>
+                      {w.status}
+                    </span>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${t.status === "completed" ? "bg-green-500/20 text-green-400" : t.status === "rejected" ? "bg-red-500/20 text-red-400" : "bg-gold/20 text-gold"}`}>
-                    {t.status}
-                  </span>
+                  <div className="text-[11px] text-foreground space-y-0.5">
+                    <p><span className="text-muted-foreground">Bank:</span> {w.bank_name}</p>
+                    <p><span className="text-muted-foreground">Account:</span> {w.account_number} • {w.account_name}</p>
+                    <p className="text-[10px] text-muted-foreground">User {w.user_id.slice(0,8)}… • {new Date(w.created_at).toLocaleString()}</p>
+                    {w.admin_notes && <p className="text-[10px] text-red-400">Note: {w.admin_notes}</p>}
+                  </div>
+                  {w.status === "pending" && (
+                    <div className="flex gap-2">
+                      <button onClick={() => updateStatus("approved")} className="flex-1 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase">Approve</button>
+                      <button onClick={() => updateStatus("rejected")} className="flex-1 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase">Reject</button>
+                    </div>
+                  )}
+                  {w.status === "approved" && (
+                    <button onClick={() => updateStatus("paid")} className="w-full py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase">
+                      Mark as Paid (₦{((w.payout_coins||0)*10).toLocaleString()} sent)
+                    </button>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">User: {t.user_id.slice(0, 8)}... • {new Date(t.created_at).toLocaleDateString()}</p>
-              </div>
-            ))}
-            {transactions.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No withdrawal requests</p>}
+              );
+            })}
+            {withdrawals.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No withdrawal requests</p>}
           </div>
         )}
 
