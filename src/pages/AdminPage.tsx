@@ -283,6 +283,17 @@ const AdminPage = () => {
 
   useEffect(() => { if (tab === "analytics" && isAdmin) loadAnalytics(); /* eslint-disable-next-line */ }, [tab, isAdmin]);
 
+  // Real-time: refresh withdrawal/verification requests as users submit them
+  useEffect(() => {
+    if (!isAdmin) return;
+    const ch = supabase
+      .channel("admin-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawal_requests" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "verification_requests" }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [isAdmin]);
+
   const exportLedgerCsv = () => {
     if (ledger.length === 0) { toast.error("Nothing to export"); return; }
     const headers = ["created_at","gift_id","sender_username","recipient_username","debit_amount","creator_credit","platform_fee","gift_type","live_stream_id","post_id"];
