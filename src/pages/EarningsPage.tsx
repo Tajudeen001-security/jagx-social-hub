@@ -1,4 +1,4 @@
-import { ArrowLeft, TrendingUp, Coins, Gift, DollarSign, Banknote, CreditCard } from "lucide-react";
+import { ArrowLeft, TrendingUp, Coins, Gift, DollarSign, Banknote, CreditCard, Play, Eye, Code2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ const EarningsPage = () => {
   const [earnings, setEarnings] = useState({ totalReceived: 0, totalSent: 0, platformFees: 0, netEarnings: 0 });
   const [recentGifts, setRecentGifts] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [videoStats, setVideoStats] = useState({ totalVideos: 0, totalViews: 0, totalLikes: 0, topVideos: [] as any[] });
   const [currency, setCurrency] = useState<"coins" | "naira" | "usd">("coins");
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [bankDetails, setBankDetails] = useState({ bankName: "", accountNumber: "", accountName: "" });
@@ -22,6 +23,7 @@ const EarningsPage = () => {
   useEffect(() => {
     if (!user) return;
     loadEarnings();
+    loadVideoAnalytics();
     supabase.from("profiles").select("jagx_coins").eq("user_id", user.id).single().then(({ data }) => setProfile(data));
   }, [user]);
 
@@ -42,6 +44,31 @@ const EarningsPage = () => {
       const pMap = new Map(profiles?.map(p => [p.user_id, p.username]) || []);
       setRecentGifts(received.slice(0, 20).map(g => ({ ...g, sender_username: pMap.get(g.sender_id) || "user" })));
     }
+  };
+
+  const loadVideoAnalytics = async () => {
+    if (!user) return;
+    const { data: videos } = await supabase
+      .from("posts")
+      .select("id, content, video_url, image_url, view_count, created_at")
+      .eq("user_id", user.id)
+      .not("video_url", "is", null)
+      .order("view_count", { ascending: false });
+    if (!videos) return;
+    const ids = videos.map(v => v.id);
+    let likeMap = new Map<string, number>();
+    if (ids.length) {
+      const { data: likes } = await supabase.from("likes").select("post_id").in("post_id", ids);
+      likes?.forEach(l => likeMap.set(l.post_id, (likeMap.get(l.post_id) || 0) + 1));
+    }
+    const totalViews = videos.reduce((s, v) => s + (v.view_count || 0), 0);
+    const totalLikes = Array.from(likeMap.values()).reduce((a, b) => a + b, 0);
+    setVideoStats({
+      totalVideos: videos.length,
+      totalViews,
+      totalLikes,
+      topVideos: videos.slice(0, 5).map(v => ({ ...v, like_count: likeMap.get(v.id) || 0 })),
+    });
   };
 
   const convertValue = (coins: number) => {
@@ -234,6 +261,54 @@ const EarningsPage = () => {
           )}
         </div>
       </div>
+
+        {/* Video analytics */}
+        <div className="p-4 rounded-xl bg-surface border border-border/30">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><Play className="size-4 text-gold" /> Video Analytics</h3>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{videoStats.totalVideos} reels</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="p-3 rounded-lg bg-background border border-border/30">
+              <div className="flex items-center gap-1.5 mb-1"><Eye className="size-3.5 text-gold" /><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Total views</span></div>
+              <p className="text-lg font-bold text-champagne">{videoStats.totalViews.toLocaleString()}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background border border-border/30">
+              <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="size-3.5 text-green-400" /><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Total likes</span></div>
+              <p className="text-lg font-bold text-champagne">{videoStats.totalLikes.toLocaleString()}</p>
+            </div>
+          </div>
+          {videoStats.topVideos.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">Post your first reel to see analytics here.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Top performing reels</p>
+              {videoStats.topVideos.map((v: any) => (
+                <button key={v.id} onClick={() => navigate(`/post/${v.id}`)} className="w-full flex items-center gap-3 p-2 rounded-lg bg-background border border-border/30 text-left hover:border-gold/40">
+                  <div className="size-12 rounded-lg bg-black overflow-hidden shrink-0 flex items-center justify-center">
+                    {v.image_url
+                      ? <img src={v.image_url} className="w-full h-full object-cover" alt="" />
+                      : <Play className="size-5 text-gold" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-champagne line-clamp-1">{v.content || "Untitled reel"}</p>
+                    <p className="text-[10px] text-muted-foreground">{(v.view_count || 0).toLocaleString()} views · {v.like_count} likes</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Developer API CTA */}
+        <button onClick={() => navigate("/developer")} className="w-full p-4 rounded-xl bg-surface border border-border/30 flex items-center gap-3 text-left hover:border-gold/40">
+          <div className="size-10 rounded-lg gold-gradient flex items-center justify-center"><Code2 className="size-5 text-primary-foreground" /></div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-champagne">Developer API</p>
+            <p className="text-[11px] text-muted-foreground">Get API keys to build your own AI with JagX</p>
+          </div>
+          <span className="text-gold">→</span>
+        </button>
     </div>
   );
 };
