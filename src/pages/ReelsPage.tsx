@@ -322,7 +322,8 @@ const ReelItem = ({ reel, isActive, user, navigate, isMuted, onToggleMute }: { r
   const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
   const shareReel = async () => {
-    const url = `${window.location.origin}/p/${reel.id}`;
+    // Always use the production domain so links work outside the dev preview
+    const url = `${SHARE_BASE}/p/${reel.id}`;
     const text = reel.content
       ? `${reel.content.slice(0, 100)}${reel.content.length > 100 ? "…" : ""}`
       : `Watch @${reel.username} on JagX Buddy Connect`;
