@@ -60,9 +60,9 @@ const PostCard = ({
 
   const shareLink = async () => {
     if (!id) return;
-    // /p/:id is the edge-rendered share preview (OG tags + crawlable HTML for
-    // WhatsApp / Facebook / Twitter / Google). Falls back to SPA on dev.
-    const url = `${window.location.origin}/p/${id}`;
+    // Production share domain → edge-rendered preview (/p/:id) with OG tags +
+    // crawlable HTML for WhatsApp / Facebook / Twitter / Google.
+    const url = `https://jagx-buddy-connect.name.ng/p/${id}`;
     const text = caption ? `${caption.slice(0, 100)}${caption.length > 100 ? "…" : ""}` : `Check out @${username} on JagX Buddy Connect`;
     try {
       if (navigator.share) {
