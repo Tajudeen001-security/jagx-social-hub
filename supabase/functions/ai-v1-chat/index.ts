@@ -50,12 +50,10 @@ Deno.serve(async (req) => {
   }
 
   // Fire-and-forget usage bump
-  admin.from("api_keys").update({
-    last_used_at: new Date().toISOString(),
-    usage_count: (await admin.rpc as any) ? undefined : undefined,
-  }).eq("id", keyRow.id).then(() => {});
-  admin.rpc("increment_post_view", { p_post_id: "00000000-0000-0000-0000-000000000000" }).then(() => {}).catch(() => {});
-  admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyRow.id).then(() => {});
+  admin.from("api_keys")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", keyRow.id)
+    .then(() => {});
 
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
