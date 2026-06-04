@@ -9,6 +9,10 @@ import { useNavigate } from "react-router-dom";
 import StructuredData from "@/components/StructuredData";
 import Canonical from "@/components/Canonical";
 import TaggedText from "@/components/TaggedText";
+import AdSlot from "@/components/AdSlot";
+
+// Production share domain — links work even when opened from the lovable preview
+const SHARE_BASE = "https://jagx-buddy-connect.name.ng";
 
 interface Reel {
   id: string;
@@ -41,6 +45,8 @@ const ReelsPage = () => {
   // Reels always play with sound — never muted
   const isMuted = false;
   const [showComposer, setShowComposer] = useState(false);
+  // 1 ad after every 5 reels — per AdSense ToS, never adjacent
+  const AD_EVERY = 5;
 
   useEffect(() => { loadReels(); }, [user?.id]);
 
@@ -84,13 +90,25 @@ const ReelsPage = () => {
   // Record view when current reel changes
   useEffect(() => {
     const reel = reels[currentIndex];
-    if (!reel || !user) return;
-    // Upsert so a re-watch is idempotent — view is permanently persisted across sessions
-    supabase
-      .from("reel_views")
-      .upsert({ user_id: user.id, post_id: reel.id }, { onConflict: "user_id,post_id", ignoreDuplicates: true })
-      .then(() => {});
+    if (!reel) return;
+    // Bump global view counter (used for creator analytics in Earnings).
+    supabase.rpc("increment_post_view", { p_post_id: reel.id }).then(() => {});
+    if (user) {
+      // Upsert so a re-watch is idempotent — view is permanently persisted across sessions
+      supabase
+        .from("reel_views")
+        .upsert({ user_id: user.id, post_id: reel.id }, { onConflict: "user_id,post_id", ignoreDuplicates: true })
+        .then(() => {});
+    }
   }, [currentIndex, reels, user]);
+
+  // Build interleaved list of reels + ad markers (one ad after every AD_EVERY reels).
+  type FeedItem = { type: "reel"; reel: Reel } | { type: "ad"; key: string };
+  const feed: FeedItem[] = [];
+  reels.forEach((r, i) => {
+    feed.push({ type: "reel", reel: r });
+    if ((i + 1) % AD_EVERY === 0) feed.push({ type: "ad", key: `ad-${i}` });
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,9 +133,19 @@ const ReelsPage = () => {
         )}
       </div>
       <div ref={containerRef} onScroll={handleScroll} className="h-screen snap-y snap-mandatory overflow-y-auto">
-        {reels.map((reel, i) => (
-          <ReelItem key={reel.id} reel={reel} isActive={i === currentIndex} user={user} navigate={navigate} isMuted={isMuted} onToggleMute={() => {}} />
-        ))}
+        {feed.map((item, i) =>
+          item.type === "reel" ? (
+            <ReelItem key={item.reel.id} reel={item.reel} isActive={i === currentIndex} user={user} navigate={navigate} isMuted={isMuted} onToggleMute={() => {}} />
+          ) : (
+            <div key={item.key} className="h-screen snap-start bg-background flex flex-col items-center justify-center px-6">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Sponsored · keeps JagX free</span>
+              <div className="w-full max-w-md">
+                <AdSlot format="auto" style={{ minHeight: 280 }} />
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">Swipe up for more reels</p>
+            </div>
+          )
+        )}
         {reels.length === 0 && (
           <div className="h-screen flex items-center justify-center">
             <p className="text-muted-foreground text-sm">No reels yet. Post a video to see it here!</p>
