@@ -24,29 +24,31 @@ const AuthPage = () => {
   const [signupStep, setSignupStep] = useState<CodeStep>("request");
   const [newPassword, setNewPassword] = useState("");
 
+  // Calls our custom 6-digit OTP edge functions. Codes are prefixed
+  // JAGX- or JRI- and sent via Resend (e.g. "JAGX-483920").
+  const callOtp = async (fn: "send-otp" | "verify-otp", body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke(fn, { body });
+    if (error) {
+      // Edge function returns its own JSON error in data when status != 2xx
+      const msg = (data as any)?.error || error.message || "Request failed";
+      throw new Error(msg);
+    }
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as any;
+  };
+
   const handleForgotPassword = async () => {
     setLoading(true);
     try {
       if (forgotStep === "request") {
-        // Sends a 6-digit email OTP code via Supabase Auth
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: { shouldCreateUser: false },
-        });
-        if (error) throw error;
+        const res = await callOtp("send-otp", { email, purpose: "reset" });
         setForgotStep("verify");
-        toast.success("We emailed you a 6-digit code");
+        toast.success(res?.devCode ? `Dev mode: ${res.devCode}` : "We emailed you a 6-digit code");
       } else {
-        const { error: vErr } = await supabase.auth.verifyOtp({
-          email,
-          token: otp,
-          type: "email",
-        });
-        if (vErr) throw vErr;
-        const { error: uErr } = await supabase.auth.updateUser({
-          password: newPassword,
-        });
-        if (uErr) throw uErr;
+        await callOtp("verify-otp", { email, code: otp, purpose: "reset", password: newPassword });
+        // Sign the user in with the new password
+        const { error: sErr } = await supabase.auth.signInWithPassword({ email, password: newPassword });
+        if (sErr) throw sErr;
         toast.success("Password reset. Welcome back!");
         navigate("/");
       }
@@ -61,34 +63,22 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "signup") {
-        // 6-digit email code flow (no magic link)
         if (signupStep === "request") {
-          const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-              shouldCreateUser: true,
-              data: { username, display_name: username },
-            },
-          });
-          if (error) throw error;
-          setSignupStep("verify");
-          toast.success("We emailed you a 6-digit code");
-        } else {
-          const { error: vErr } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
-          if (vErr) throw vErr;
-          // Set password so future logins work
-          if (password) {
-            const { error: uErr } = await supabase.auth.updateUser({ password });
-            if (uErr) throw uErr;
+          if (!password || password.length < 6) {
+            throw new Error("Choose a password (min 6 chars) before we send the code");
           }
+          const res = await callOtp("send-otp", { email, purpose: "signup", metadata: { username } });
+          setSignupStep("verify");
+          toast.success(res?.devCode ? `Dev mode: ${res.devCode}` : "We emailed you a 6-digit code");
+        } else {
+          await callOtp("verify-otp", { email, code: otp, purpose: "signup", password, username });
+          const { error: sErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (sErr) throw sErr;
           toast.success("Welcome to JagX! 🐆");
           navigate("/");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back!");
         navigate("/");
@@ -236,11 +226,11 @@ const AuthPage = () => {
           {((otpSent && method === "phone") || (mode === "forgot" && forgotStep === "verify") || (mode === "signup" && signupStep === "verify" && method === "email")) && (
             <input
               type="text"
-              placeholder="Enter 6-digit code from email"
+              placeholder="Code from email (e.g. JAGX-123456 or 123456)"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(e.target.value.toUpperCase())}
               className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm text-center tracking-[0.5em]"
-              maxLength={6}
+              maxLength={12}
               required
             />
           )}

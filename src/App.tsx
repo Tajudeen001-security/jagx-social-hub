@@ -33,6 +33,7 @@ import AdminPage from "./pages/AdminPage";
 import PostDetailPage from "./pages/PostDetailPage";
 import GroupDiscoverPage from "./pages/GroupDiscoverPage";
 import JoinGroupPage from "./pages/JoinGroupPage";
+import DeveloperPage from "./pages/DeveloperPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,7 @@ const AppContent = () => {
         <Route path="/ads" element={<ProtectedRoute><AdsPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         <Route path="/post/:postId" element={<ProtectedRoute><PostDetailPage /></ProtectedRoute>} />
+        <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
