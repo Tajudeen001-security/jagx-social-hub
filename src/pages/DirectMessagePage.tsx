@@ -106,8 +106,15 @@ const DirectMessagePage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, userId]);
 
+  const didInitialScroll = useRef(false);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (!scrollRef.current) return;
+    // Instant snap on first paint (user opens chat), smooth for subsequent updates.
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: didInitialScroll.current ? "smooth" : "auto",
+    });
+    if (messages.length > 0) didInitialScroll.current = true;
   }, [messages]);
 
   const handleTyping = useCallback(() => {

@@ -147,6 +147,11 @@ const ProfilePage = () => {
             <span className="text-xs text-gold font-semibold">₦10,000</span>
           </button>
         )}
+
+        <button onClick={() => navigate("/privacy")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
+          <div className="flex items-center gap-2"><Shield className="size-5 text-muted-foreground" /><span className="text-sm text-foreground">Privacy &amp; Terms</span></div>
+          <span className="text-xs text-muted-foreground">→</span>
+        </button>
       </div>
 
       <div className="flex border-b border-border/30">
