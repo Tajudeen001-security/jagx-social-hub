@@ -42,13 +42,11 @@ async function sendEmail(to: string, subject: string, html: string) {
   if (!res.ok) {
     const t = await res.text();
     console.error("Resend error:", res.status, t);
-    // Fallback: try Resend test domain so the flow still completes during DNS verify
-    const res2 = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: "JagX Buddy <onboarding@resend.dev>", to: [to], subject, html }),
-    });
-    if (!res2.ok) throw new Error(`Resend failed: ${await res2.text()}`);
+    // Domain not verified yet — surface a clear error so the UI can show a helpful message.
+    throw new Error(
+      "Email sender domain (jagx-buddy-connect.name.ng) is not verified in Resend yet. " +
+      "Verify it at https://resend.com/domains, then retry.",
+    );
   }
   return { devMode: false };
 }
