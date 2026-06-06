@@ -34,6 +34,7 @@ import PostDetailPage from "./pages/PostDetailPage";
 import GroupDiscoverPage from "./pages/GroupDiscoverPage";
 import JoinGroupPage from "./pages/JoinGroupPage";
 import DeveloperPage from "./pages/DeveloperPage";
+import DeveloperDocsPage from "./pages/DeveloperDocsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFound from "./pages/NotFound";
 
@@ -99,6 +100,7 @@ const AppContent = () => {
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         <Route path="/post/:postId" element={<ProtectedRoute><PostDetailPage /></ProtectedRoute>} />
         <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
+        <Route path="/developer/docs" element={<DeveloperDocsPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<PrivacyPolicyPage />} />
         <Route path="*" element={<NotFound />} />
