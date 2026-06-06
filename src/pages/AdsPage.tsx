@@ -16,6 +16,8 @@ const AdsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [myAds, setMyAds] = useState<any[]>([]);
+  const [allAds, setAllAds] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -24,18 +26,36 @@ const AdsPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [placementSection, setPlacementSection] = useState<"home" | "reels" | "both">("home");
+  const [placementFrequency, setPlacementFrequency] = useState(5);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
     loadAds();
     supabase.from("profiles").select("jagx_coins").eq("user_id", user.id).single().then(({ data }) => setProfile(data));
+    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle()
+      .then(({ data }) => {
+        if (data) { setIsAdmin(true); loadAllAds(); }
+      });
   }, [user]);
 
   const loadAds = async () => {
     if (!user) return;
     const { data } = await supabase.from("ads").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
     if (data) setMyAds(data);
+  };
+
+  const loadAllAds = async () => {
+    const { data } = await supabase.from("ads").select("*").order("created_at", { ascending: false }).limit(50);
+    if (data) setAllAds(data);
+  };
+
+  const adminUpdate = async (id: string, patch: any) => {
+    const { error } = await supabase.from("ads").update(patch).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Updated");
+    loadAllAds();
   };
 
   const createAd = async () => {
@@ -59,6 +79,8 @@ const AdsPage = () => {
       user_id: user.id, title: title.trim(), description: description.trim(),
       image_url: imageUrl || null, link_url: linkUrl.trim() || null,
       coin_cost: plan.cost, max_impressions: plan.impressions,
+      placement_section: placementSection,
+      placement_frequency: placementFrequency,
     });
 
     if (error) toast.error("Failed to create ad");
@@ -101,8 +123,48 @@ const AdsPage = () => {
                 <span className="text-[10px] text-gold flex items-center gap-1"><Coins className="size-3" /> {ad.coin_cost} coins</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${ad.status === "active" ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"}`}>{ad.status}</span>
               </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Shows in <span className="text-champagne">{ad.placement_section || "home"}</span> after every <span className="text-champagne">{ad.placement_frequency || 5}</span> posts
+                {ad.admin_override && <span className="ml-1 text-yellow-400">· admin override active</span>}
+              </p>
             </div>
           ))
+        )}
+
+        {/* Admin override panel */}
+        {isAdmin && (
+          <div className="mt-8 space-y-3">
+            <h3 className="text-sm font-semibold text-yellow-400">🛡️ Admin · All Ads · Override Placement</h3>
+            {allAds.map(ad => (
+              <div key={ad.id} className="p-3 rounded-xl bg-surface border border-yellow-500/30 space-y-2">
+                <p className="text-sm font-semibold text-champagne">{ad.title}</p>
+                <div className="flex gap-2 items-center">
+                  <select value={ad.admin_section || ad.placement_section || "home"}
+                    onChange={(e) => adminUpdate(ad.id, { admin_section: e.target.value, admin_override: true })}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground">
+                    <option value="home">Home Feed</option>
+                    <option value="reels">Reels</option>
+                    <option value="both">Both</option>
+                  </select>
+                  <input type="number" min={1} max={50}
+                    value={ad.admin_frequency || ad.placement_frequency || 5}
+                    onChange={(e) => adminUpdate(ad.id, { admin_frequency: Number(e.target.value), admin_override: true })}
+                    className="w-20 px-2 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground" />
+                  <span className="text-[10px] text-muted-foreground">every N posts</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => adminUpdate(ad.id, { admin_override: !ad.admin_override })}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${ad.admin_override ? "bg-yellow-500/20 text-yellow-400" : "bg-background border border-border text-muted-foreground"}`}>
+                    {ad.admin_override ? "Override ON" : "Override OFF"}
+                  </button>
+                  <button onClick={() => adminUpdate(ad.id, { status: ad.status === "active" ? "paused" : "active" })}
+                    className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-background border border-border text-foreground">
+                    {ad.status === "active" ? "Pause" : "Activate"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -136,6 +198,24 @@ const AdsPage = () => {
                 <span className="text-xs text-muted-foreground">{imageFile ? imageFile.name : "Tap to upload"}</span>
               </button>
               <input ref={fileRef} type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)} className="hidden" />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Where should this ad appear?</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["home", "reels", "both"] as const).map((s) => (
+                  <button key={s} onClick={() => setPlacementSection(s)}
+                    className={`py-2 rounded-lg text-xs capitalize ${placementSection === s ? "gold-gradient text-primary-foreground font-bold" : "bg-surface border border-border text-foreground"}`}>
+                    {s === "home" ? "Home Feed" : s === "reels" ? "Reels" : "Both"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Show after every N posts ({placementFrequency})</label>
+              <input type="range" min={2} max={20} value={placementFrequency}
+                onChange={(e) => setPlacementFrequency(Number(e.target.value))} className="w-full accent-gold" />
+              <p className="text-[10px] text-muted-foreground">Lower = more impressions, higher = less intrusive</p>
             </div>
 
             <div>
