@@ -16,6 +16,9 @@ export type Database = {
     Tables: {
       ads: {
         Row: {
+          admin_frequency: number | null
+          admin_override: boolean
+          admin_section: string | null
           coin_cost: number
           created_at: string
           description: string | null
@@ -25,11 +28,16 @@ export type Database = {
           impressions: number
           link_url: string | null
           max_impressions: number
+          placement_frequency: number
+          placement_section: string
           status: string
           title: string
           user_id: string
         }
         Insert: {
+          admin_frequency?: number | null
+          admin_override?: boolean
+          admin_section?: string | null
           coin_cost?: number
           created_at?: string
           description?: string | null
@@ -39,11 +47,16 @@ export type Database = {
           impressions?: number
           link_url?: string | null
           max_impressions?: number
+          placement_frequency?: number
+          placement_section?: string
           status?: string
           title: string
           user_id: string
         }
         Update: {
+          admin_frequency?: number | null
+          admin_override?: boolean
+          admin_section?: string | null
           coin_cost?: number
           created_at?: string
           description?: string | null
@@ -53,6 +66,8 @@ export type Database = {
           impressions?: number
           link_url?: string | null
           max_impressions?: number
+          placement_frequency?: number
+          placement_section?: string
           status?: string
           title?: string
           user_id?: string
@@ -1095,6 +1110,10 @@ export type Database = {
         Returns: boolean
       }
       increment_post_view: { Args: { p_post_id: string }; Returns: undefined }
+      purchase_api_key: {
+        Args: { _key_hash: string; _key_prefix: string; _name: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

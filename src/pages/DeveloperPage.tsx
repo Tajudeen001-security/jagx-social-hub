@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Key, Plus, Copy, Trash2, ShieldAlert, Code2, BookOpen } from "lucide-react";
+import { ArrowLeft, Key, Plus, Copy, Trash2, ShieldAlert, Code2, BookOpen, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,8 +34,15 @@ const DeveloperPage = () => {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [coins, setCoins] = useState<number>(0);
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => {
+    if (user) {
+      load();
+      supabase.from("profiles").select("jagx_coins").eq("user_id", user.id).single()
+        .then(({ data }) => setCoins((data as any)?.jagx_coins ?? 0));
+    }
+  }, [user]);
 
   const load = async () => {
     const { data } = await supabase.from("api_keys").select("*").order("created_at", { ascending: false });
@@ -45,22 +52,23 @@ const DeveloperPage = () => {
   const createKey = async () => {
     if (!user) return;
     if (!name.trim()) { toast.error("Give your key a name"); return; }
+    if (coins < 70) { toast.error("You need at least 70 JagX coins to create an API key"); return; }
     setCreating(true);
     try {
       const rawKey = randomKey();
       const key_hash = await sha256Hex(rawKey);
       const key_prefix = rawKey.slice(0, 16);
-      const { error } = await supabase.from("api_keys").insert({
-        user_id: user.id,
-        name: name.trim(),
-        key_prefix,
-        key_hash,
+      const { error } = await (supabase.rpc as any)("purchase_api_key", {
+        _name: name.trim(),
+        _key_prefix: key_prefix,
+        _key_hash: key_hash,
       });
       if (error) throw error;
       setRevealedKey(rawKey);
       setName("");
+      setCoins((c) => c - 70);
       await load();
-      toast.success("API key created — copy it now, you won't see it again!");
+      toast.success("API key created (−70 🪙) — copy it now, you won't see it again!");
     } catch (e: any) {
       toast.error(e.message || "Failed to create key");
     } finally {
@@ -91,20 +99,22 @@ const DeveloperPage = () => {
           <button onClick={() => navigate(-1)} className="text-foreground"><ArrowLeft className="size-5" /></button>
           <Code2 className="size-5 text-gold" />
           <h1 className="font-display italic text-xl text-gold">Developer API</h1>
+          <div className="ml-auto flex items-center gap-1 text-xs text-gold"><Coins className="size-3.5" /> {coins}</div>
         </div>
       </header>
 
       <div className="p-4 space-y-5">
-        {/* Intro */}
         <div className="p-4 rounded-xl glass gold-glow">
-          <h2 className="text-sm font-semibold text-champagne mb-1">Build your own AI with JagX</h2>
+          <h2 className="text-sm font-semibold text-champagne mb-1">Build your own AI with JagX · 70 🪙 per key</h2>
           <p className="text-xs text-muted-foreground">
             Get a personal API key and call our OpenAI-compatible <code className="text-gold">/v1/chat/completions</code> endpoint
             powered by the latest Gemini & GPT models. Build chatbots, assistants, agents — whatever you can imagine.
           </p>
+          <button onClick={() => navigate("/developer/docs")} className="mt-3 inline-flex items-center gap-1.5 text-xs text-gold underline">
+            <BookOpen className="size-3.5" /> Full API documentation →
+          </button>
         </div>
 
-        {/* Newly created key reveal */}
         {revealedKey && (
           <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
             <div className="flex items-start gap-2 mb-2">
@@ -119,9 +129,8 @@ const DeveloperPage = () => {
           </div>
         )}
 
-        {/* Create */}
         <div className="p-4 rounded-xl bg-surface border border-border/30 space-y-3">
-          <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><Key className="size-4" /> Create new key</h3>
+          <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><Key className="size-4" /> Create new key · 70 🪙</h3>
           <div className="flex gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name (e.g. My Chatbot)"
               className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
@@ -129,9 +138,9 @@ const DeveloperPage = () => {
               <Plus className="size-3.5" /> Create
             </button>
           </div>
+          <p className="text-[10px] text-muted-foreground">Creating a key deducts 70 JagX coins. Need more? <button onClick={() => navigate("/coins")} className="text-gold underline">Buy coins</button></p>
         </div>
 
-        {/* Existing keys */}
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-champagne">Your keys</h3>
           {keys.length === 0 ? (
@@ -159,7 +168,6 @@ const DeveloperPage = () => {
           )}
         </div>
 
-        {/* Docs */}
         <div className="p-4 rounded-xl bg-surface border border-border/30 space-y-3">
           <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><BookOpen className="size-4" /> Quick start</h3>
           <p className="text-xs text-muted-foreground">OpenAI-compatible. Drop-in for any SDK that supports a custom base URL.</p>
@@ -172,11 +180,7 @@ const DeveloperPage = () => {
     "messages": [{"role":"user","content":"Hello JagX!"}]
   }'`}</code></pre>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            Models: <code className="text-gold">google/gemini-3-flash-preview</code>, <code className="text-gold">google/gemini-2.5-pro</code>,
-            <code className="text-gold"> openai/gpt-5</code>, <code className="text-gold">openai/gpt-5-mini</code>, more.
-          </p>
-          <p className="text-[11px] text-muted-foreground">Set <code className="text-gold">"stream": true</code> for SSE token streaming.</p>
+          <button onClick={() => navigate("/developer/docs")} className="text-xs text-gold underline">Read full documentation →</button>
         </div>
       </div>
     </div>

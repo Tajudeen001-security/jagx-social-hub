@@ -167,8 +167,8 @@ const FeedPage = () => {
               isPoll={post.is_poll || false}
               pollOptions={post.poll_options || null}
             />
-            {/* Show ad every 5 posts */}
-            {(index + 1) % 5 === 0 && <FeedAd />}
+            {/* Ad placement — FeedAd decides per ad whether to render here */}
+            <FeedAd position={index + 1} section="home" />
           </div>
         ))}
         {posts.length === 0 && (
