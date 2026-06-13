@@ -1239,6 +1239,14 @@ export type Database = {
         Returns: boolean
       }
       increment_post_view: { Args: { p_post_id: string }; Returns: undefined }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       purchase_api_key: {
         Args: { _key_hash: string; _key_prefix: string; _name: string }
         Returns: string
