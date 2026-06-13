@@ -324,23 +324,18 @@ const DirectMessagePage = () => {
         onClick={() => isMine && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
       >
         <div
-          className={`max-w-[78%] text-sm shadow-sm ${
+          className={`relative max-w-[78%] text-sm shadow-sm ${
             isSticker ? "bg-transparent text-4xl p-2" :
             isMine
-              ? "text-primary-foreground rounded-2xl rounded-br-sm"
+              ? `text-primary-foreground rounded-2xl rounded-br-sm ${theme?.theme_color ? "" : "gold-gradient"}`
               : "bg-surface border border-border/30 text-foreground rounded-2xl rounded-bl-sm"
           } ${(isImage || isVideo) ? "p-1" : isSticker ? "" : "px-3.5 py-2"}`}
           style={
-            isMine && !isSticker
-              ? theme?.theme_color
-                ? { background: theme.theme_color }
-                : undefined
+            isMine && !isSticker && theme?.theme_color
+              ? { background: theme.theme_color }
               : undefined
           }
         >
-          {isMine && !isSticker && !theme?.theme_color && (
-            <div className="absolute inset-0 -z-10 rounded-2xl rounded-br-sm gold-gradient" />
-          )}
           {/* Reply preview */}
           {hasReply && !isSticker && (
             <div className={`text-[10px] mb-1.5 pl-2 border-l-2 ${isMine ? "border-primary-foreground/40 text-primary-foreground/70" : "border-gold/40 text-gold/70"}`}>
