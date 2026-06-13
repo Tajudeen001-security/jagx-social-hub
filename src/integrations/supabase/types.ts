@@ -250,6 +250,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_themes: {
+        Row: {
+          background_url: string | null
+          bubble_style: string | null
+          id: string
+          peer_id: string
+          theme_color: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          background_url?: string | null
+          bubble_style?: string | null
+          id?: string
+          peer_id: string
+          theme_color?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          background_url?: string | null
+          bubble_style?: string | null
+          id?: string
+          peer_id?: string
+          theme_color?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coin_transactions: {
         Row: {
           amount: number
