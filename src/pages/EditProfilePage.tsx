@@ -15,6 +15,16 @@ const EditProfilePage = () => {
   const [location, setLocation] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dob, setDob] = useState("");
+  const [sex, setSex] = useState("");
+  const [country, setCountry] = useState("");
+  const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [aiConsent, setAiConsent] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -26,6 +36,16 @@ const EditProfilePage = () => {
           setDisplayName(data.display_name || "");
           setBio(data.bio || "");
           setLocation(data.location || "");
+          setFirstName((data as any).first_name || "");
+          setMiddleName((data as any).middle_name || "");
+          setLastName((data as any).last_name || "");
+          setDob((data as any).date_of_birth || "");
+          setSex((data as any).sex || "");
+          setCountry((data as any).country || "");
+          setRegion((data as any).region || "");
+          setCity((data as any).city || "");
+          setAddress((data as any).address || "");
+          setAiConsent(!!(data as any).ai_training_consent);
         }
       });
   }, [user]);
@@ -73,9 +93,16 @@ const EditProfilePage = () => {
   const saveProfile = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
+    const update: any = {
       username, display_name: displayName, bio, location,
-    }).eq("user_id", user.id);
+      first_name: firstName || null, middle_name: middleName || null, last_name: lastName || null,
+      date_of_birth: dob || null, sex: sex || null,
+      region: region || null, city: city || null, address: address || null,
+      ai_training_consent: aiConsent,
+    };
+    // Country is locked unless VPN flag set (handled server-side later).
+    if (profile?.country_locked === false) update.country = country || null;
+    const { error } = await supabase.from("profiles").update(update).eq("user_id", user.id);
     if (error) toast.error(error.message);
     else { toast.success("Profile updated!"); navigate("/profile"); }
     setSaving(false);
@@ -140,6 +167,70 @@ const EditProfilePage = () => {
           <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Location</label>
           <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="City, Country"
             className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">First name</label>
+            <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+              className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Last name</label>
+            <input type="text" value={lastName} onChange={e => setLastName(e.target.value)}
+              className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Middle name (optional)</label>
+          <input type="text" value={middleName} onChange={e => setMiddleName(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Date of birth</label>
+            <input type="date" value={dob} onChange={e => setDob(e.target.value)}
+              className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Sex</label>
+            <select value={sex} onChange={e => setSex(e.target.value)}
+              className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary">
+              <option value="">—</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">
+            Country {profile?.country_locked && <span className="text-gold normal-case tracking-normal">🔒 locked to signup country</span>}
+          </label>
+          <input type="text" value={country} disabled={profile?.country_locked !== false} onChange={e => setCountry(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary disabled:opacity-60" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="text" placeholder="Region / State" value={region} onChange={e => setRegion(e.target.value)}
+            className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+          <input type="text" placeholder="City" value={city} onChange={e => setCity(e.target.value)}
+            className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Address (optional)</label>
+          <input type="text" value={address} onChange={e => setAddress(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
+
+        {/* AI training consent */}
+        <div className="p-4 rounded-xl bg-surface border border-border/30">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={aiConsent} onChange={e => setAiConsent(e.target.checked)} className="mt-1 accent-gold size-4" />
+            <div>
+              <p className="text-sm font-semibold text-champagne">Help train JagX AI</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Off by default. When on, your future messages may be used to improve JagX AI. We never sell or share with third parties.</p>
+            </div>
+          </label>
         </div>
       </div>
     </div>
