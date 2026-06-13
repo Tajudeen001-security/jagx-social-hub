@@ -44,8 +44,16 @@ const DiscoverPage = () => {
       .from("profiles")
       .select("*")
       .neq("user_id", user?.id || "")
-      .limit(20);
-    if (data) setProfiles(data);
+      .limit(30);
+    if (data) {
+      // Pin the JagX founder / admin to the top of suggestions.
+      const sorted = [...data].sort((a, b) => {
+        const aFounder = (a.username || "").toLowerCase().includes("jagx") || a.is_verified ? 1 : 0;
+        const bFounder = (b.username || "").toLowerCase().includes("jagx") || b.is_verified ? 1 : 0;
+        return bFounder - aFounder;
+      });
+      setProfiles(sorted);
+    }
   };
 
   const fetchFollowing = async () => {
