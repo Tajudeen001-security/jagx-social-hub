@@ -429,6 +429,32 @@ const AuthPage = () => {
           </>
           )}
         </p>
+
+        {/* Social sign-in */}
+        {mode !== "forgot" && (
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Or continue with</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => handleSocial("google")} disabled={loading}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                <svg viewBox="0 0 24 24" className="size-4"><path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.4-1.7 4.1-5.4 4.1-3.3 0-5.9-2.7-5.9-6s2.6-6 5.9-6c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.6 14.7 2.7 12 2.7 6.9 2.7 2.8 6.8 2.8 12s4.1 9.3 9.2 9.3c5.3 0 8.8-3.7 8.8-9 0-.6 0-1-.1-1.5H12z"/></svg>
+                Google
+              </button>
+              <button type="button" onClick={() => handleSocial("apple")} disabled={loading}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                <svg viewBox="0 0 24 24" className="size-4 fill-current"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2.1-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.8 1.2 1.8 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.3-1.2 3.1-2.5.7-1 1.1-1.9 1.3-2.5-1-.4-2.7-1.4-2.7-4.2zM14 4.4c.7-.8 1.1-2 1-3.1-1 .1-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.3-.6 2.9-1.4z"/></svg>
+                Apple
+              </button>
+            </div>
+            <p className="text-[9px] text-muted-foreground text-center mt-3 leading-relaxed">
+              By signing in you agree to our <button type="button" onClick={() => navigate("/privacy")} className="text-gold underline">Privacy Policy & Terms</button>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
