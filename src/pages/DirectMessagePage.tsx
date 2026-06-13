@@ -397,7 +397,7 @@ const DirectMessagePage = () => {
           onEnd={() => setActiveCall(null)}
         />
       )}
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
