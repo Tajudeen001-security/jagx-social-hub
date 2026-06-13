@@ -51,7 +51,7 @@ const AIChatPage = () => {
 
   const startNewChat = () => {
     setActiveConvoId(null);
-    setMessages([{ role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant!\n\n🧮 I can solve **math problems** with beautiful formatting\n📸 Send me **images** and I'll analyze them\n🎨 Ask me to **generate images**\n📚 I help with **JAMB, WAEC, NECO** exam prep\n🌍 Ask me **anything** about the world!\n\nWhat can I help you with?" }]);
+    setMessages([{ role: "assistant", content: "Hey there! 🐆 I'm **JagX Buddy**, your AI assistant!\n\n🧮 Solve problems and do math\n📸 Send me **images** and I'll analyze them\n🎨 Ask me to **generate images** for posts\n💡 Help with ideas, writing, research, coding, business and more\n🌍 Ask me **anything** about the world!\n\nWhat can I help you with today?" }]);
     setShowSidebar(false);
   };
 
@@ -245,7 +245,7 @@ const AIChatPage = () => {
           </div>
           <div className="flex-1">
             <h1 className="text-sm font-semibold text-champagne">JagX Buddy</h1>
-            <p className="text-[10px] text-muted-foreground">AI • Math • Images • Exams</p>
+            <p className="text-[10px] text-muted-foreground">AI • Chat • Images • Ideas</p>
           </div>
         </div>
       </header>
@@ -309,7 +309,7 @@ const AIChatPage = () => {
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           <input
             type="text"
-            placeholder={pendingImage ? "Add a message about this image..." : "Ask anything, math, exams..."}
+            placeholder={pendingImage ? "Add a message about this image..." : "Ask JagX Buddy anything..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}

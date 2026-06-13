@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [viewingPost, setViewingPost] = useState<any | null>(null);
   const [pinMenuFor, setPinMenuFor] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -25,6 +26,7 @@ const ProfilePage = () => {
     loadPosts();
     supabase.from("followers").select("id", { count: "exact" }).eq("following_id", user.id).then(({ count }) => setFollowerCount(count || 0));
     supabase.from("followers").select("id", { count: "exact" }).eq("follower_id", user.id).then(({ count }) => setFollowingCount(count || 0));
+    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle().then(({ data }) => setIsAdmin(!!data));
   }, [user]);
 
   const loadPosts = async () => {
@@ -136,10 +138,12 @@ const ProfilePage = () => {
         </button>
 
         {/* Admin Panel */}
-        <button onClick={() => navigate("/admin")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
-          <div className="flex items-center gap-2"><Shield className="size-5 text-gold" /><span className="text-sm text-foreground">Admin Panel</span></div>
-          <span className="text-xs text-gold font-semibold">→</span>
-        </button>
+        {isAdmin && (
+          <button onClick={() => navigate("/admin")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border/30 flex items-center justify-between">
+            <div className="flex items-center gap-2"><Shield className="size-5 text-gold" /><span className="text-sm text-foreground">Admin Panel</span></div>
+            <span className="text-xs text-gold font-semibold">→</span>
+          </button>
+        )}
 
         {!profile?.is_verified && (
           <button onClick={() => navigate("/coins")} className="w-full mt-3 p-3 rounded-xl bg-surface border border-border flex items-center justify-between">
