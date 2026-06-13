@@ -52,7 +52,6 @@ const DeveloperPage = () => {
   const createKey = async () => {
     if (!user) return;
     if (!name.trim()) { toast.error("Give your key a name"); return; }
-    if (coins < 70) { toast.error("You need at least 70 JagX coins to create an API key"); return; }
     setCreating(true);
     try {
       const rawKey = randomKey();
@@ -66,9 +65,8 @@ const DeveloperPage = () => {
       if (error) throw error;
       setRevealedKey(rawKey);
       setName("");
-      setCoins((c) => c - 70);
       await load();
-      toast.success("API key created (−70 🪙) — copy it now, you won't see it again!");
+      toast.success("API key created — copy it now, you won't see it again!");
     } catch (e: any) {
       toast.error(e.message || "Failed to create key");
     } finally {
@@ -105,7 +103,7 @@ const DeveloperPage = () => {
 
       <div className="p-4 space-y-5">
         <div className="p-4 rounded-xl glass gold-glow">
-          <h2 className="text-sm font-semibold text-champagne mb-1">Build your own AI with JagX · 70 🪙 per key</h2>
+          <h2 className="text-sm font-semibold text-champagne mb-1">Build your own AI with JagX · Free</h2>
           <p className="text-xs text-muted-foreground">
             Get a personal API key and call our OpenAI-compatible <code className="text-gold">/v1/chat/completions</code> endpoint
             powered by the latest Gemini & GPT models. Build chatbots, assistants, agents — whatever you can imagine.
@@ -130,7 +128,7 @@ const DeveloperPage = () => {
         )}
 
         <div className="p-4 rounded-xl bg-surface border border-border/30 space-y-3">
-          <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><Key className="size-4" /> Create new key · 70 🪙</h3>
+          <h3 className="text-sm font-semibold text-champagne flex items-center gap-2"><Key className="size-4" /> Create new key · Free</h3>
           <div className="flex gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name (e.g. My Chatbot)"
               className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none" />
@@ -138,7 +136,7 @@ const DeveloperPage = () => {
               <Plus className="size-3.5" /> Create
             </button>
           </div>
-          <p className="text-[10px] text-muted-foreground">Creating a key deducts 70 JagX coins. Need more? <button onClick={() => navigate("/coins")} className="text-gold underline">Buy coins</button></p>
+          <p className="text-[10px] text-muted-foreground">API keys are currently free for everyone — create as many as you need.</p>
         </div>
 
         <div className="space-y-2">
