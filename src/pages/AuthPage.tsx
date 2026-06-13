@@ -262,14 +262,58 @@ const AuthPage = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm"
-              required
-            />
+            <>
+              <input type="text" placeholder="Username (public handle)" value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+              {signupStep === "request" && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+                    <input type="text" placeholder="Last name" value={lastName} onChange={e => setLastName(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+                  </div>
+                  <input type="text" placeholder="Middle name (optional)" value={middleName} onChange={e => setMiddleName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Date of birth</label>
+                      <input type="date" value={dob} onChange={e => setDob(e.target.value)}
+                        className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm" required />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Sex</label>
+                      <select value={sex} onChange={e => setSex(e.target.value)}
+                        className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm" required>
+                        <option value="">Select…</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="button" onClick={detectLocation} disabled={geoLoading}
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-gold/30 text-gold text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                    {geoLoading ? "Detecting…" : detectedCountry ? `📍 ${detectedCountry} (auto)` : "Auto-detect my location"}
+                  </button>
+                  <select value={country} onChange={e => setCountry(e.target.value)}
+                    disabled={!!detectedCountry}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm disabled:opacity-70" required>
+                    <option value="">Country *</option>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Region / State" value={region} onChange={e => setRegion(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                    <input type="text" placeholder="City" value={city} onChange={e => setCity(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                  </div>
+                  <input type="text" placeholder="Address (optional)" value={address} onChange={e => setAddress(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                </>
+              )}
+            </>
           )}
 
           {(mode === "forgot" || method === "email") ? (
