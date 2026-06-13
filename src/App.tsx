@@ -26,6 +26,7 @@ import AIChatPage from "./pages/AIChatPage";
 import DirectMessagePage from "./pages/DirectMessagePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
+import FollowListPage from "./pages/FollowListPage";
 import GroupChatPage from "./pages/GroupChatPage";
 import EarningsPage from "./pages/EarningsPage";
 import AdsPage from "./pages/AdsPage";
@@ -93,6 +94,8 @@ const AppContent = () => {
         <Route path="/ai-chat" element={<ProtectedRoute><AIChatPage /></ProtectedRoute>} />
         <Route path="/dm/:userId" element={<ProtectedRoute><DirectMessagePage /></ProtectedRoute>} />
         <Route path="/user/:userId" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
+        <Route path="/user/:userId/followers" element={<ProtectedRoute><FollowListPage mode="followers" /></ProtectedRoute>} />
+        <Route path="/user/:userId/following" element={<ProtectedRoute><FollowListPage mode="following" /></ProtectedRoute>} />
         <Route path="/edit-profile" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
         <Route path="/group/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
         <Route path="/earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
