@@ -60,14 +60,12 @@ const DiscoverPage = () => {
   const searchProfiles = async (query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
+      fetchSuggestedProfiles();
       return;
     }
     // Record search term for smart feed ranking (hashtag/keyword affinity)
     if (query.trim().length > 2) {
       import("@/lib/feedRank").then((m) => m.pushRecentSearch(query)).catch(() => {});
-    }
-      fetchSuggestedProfiles();
-      return;
     }
     setLoading(true);
     const { data } = await supabase
