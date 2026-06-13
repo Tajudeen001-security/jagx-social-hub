@@ -79,9 +79,18 @@ const ChatPage = () => {
       description: groupDesc.trim() || null,
       is_public: groupPublic,
     }).select().single();
-    if (error || !data) { toast.error("Failed to create group"); return; }
-    await supabase.from("group_members").insert({ group_id: data.id, user_id: user.id, role: "admin" });
-    toast.success("Group created!");
+    if (error || !data) {
+      toast.error(error?.message || "Failed to create group");
+      return;
+    }
+    const { error: memberError } = await supabase
+      .from("group_members")
+      .insert({ group_id: data.id, user_id: user.id, role: "admin" });
+    if (memberError) {
+      toast.error("Group created but failed to add you as admin: " + memberError.message);
+    } else {
+      toast.success("Group created!");
+    }
     setShowCreateGroup(false); setGroupName(""); setGroupDesc(""); setGroupPublic(true);
     try {
       const inviteUrl = `${window.location.origin}/g/${(data as any).invite_code}`;
