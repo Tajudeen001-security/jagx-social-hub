@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -7,6 +8,8 @@ import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
 type AuthMode = "login" | "signup" | "forgot";
 type AuthMethod = "email" | "phone";
 type CodeStep = "request" | "verify";
+
+const COUNTRIES = ["Nigeria","United States","United Kingdom","Ghana","South Africa","Kenya","Canada","Germany","France","India","Brazil","Other"];
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -23,6 +26,74 @@ const AuthPage = () => {
   const [forgotStep, setForgotStep] = useState<CodeStep>("request");
   const [signupStep, setSignupStep] = useState<CodeStep>("request");
   const [newPassword, setNewPassword] = useState("");
+  // Expanded signup profile fields
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dob, setDob] = useState("");
+  const [sex, setSex] = useState("");
+  const [country, setCountry] = useState("");
+  const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [detectedIp, setDetectedIp] = useState<string | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const ageFromDob = (d: string) => {
+    if (!d) return 0;
+    const dt = new Date(d);
+    const diff = Date.now() - dt.getTime();
+    return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+  };
+
+  const detectLocation = async () => {
+    setGeoLoading(true);
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      const j = await res.json();
+      if (j?.country_name) {
+        setDetectedCountry(j.country_name);
+        setDetectedIp(j.ip || null);
+        setCountry(j.country_name);
+        if (j.region) setRegion(j.region);
+        if (j.city) setCity(j.city);
+        toast.success(`Location detected: ${j.country_name}`);
+      }
+    } catch { toast.error("Couldn't auto-detect location, please pick manually"); }
+    finally { setGeoLoading(false); }
+  };
+
+  const persistProfileFields = async (userId: string) => {
+    await supabase.from("profiles").update({
+      first_name: firstName || null,
+      middle_name: middleName || null,
+      last_name: lastName || null,
+      date_of_birth: dob || null,
+      sex: sex || null,
+      country: country || detectedCountry || null,
+      region: region || null,
+      city: city || null,
+      address: address || null,
+      signup_ip: detectedIp,
+      signup_country: detectedCountry,
+      last_known_country: detectedCountry,
+      country_locked: !!detectedCountry,
+      location: [city, country].filter(Boolean).join(", ") || null,
+    } as any).eq("user_id", userId);
+  };
+
+  const handleSocial = async (provider: "google" | "apple") => {
+    setLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
+      if (result.error) throw result.error;
+      if (result.redirected) return; // browser redirects
+      navigate("/");
+    } catch (e: any) {
+      toast.error(e?.message || `${provider} sign-in failed`);
+    } finally { setLoading(false); }
+  };
 
   // Email OTP via Supabase's built-in mailer — no Resend / no domain verification needed.
   // The default Supabase email template embeds a 6-digit {{ .Token }}.
@@ -66,6 +137,10 @@ const AuthPage = () => {
           if (!password || password.length < 6) {
             throw new Error("Choose a password (min 6 chars) before we send the code");
           }
+          if (!firstName || !lastName) throw new Error("First and last name are required");
+          if (!dob || ageFromDob(dob) < 13) throw new Error("You must be at least 13 years old");
+          if (!sex) throw new Error("Please select your sex");
+          if (!country) throw new Error("Country is required — tap Auto-detect");
           const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
@@ -86,6 +161,9 @@ const AuthPage = () => {
           // Session active — set the chosen password so the user can use email+password later.
           const { error: uErr } = await supabase.auth.updateUser({ password });
           if (uErr) throw uErr;
+          // Persist the full profile fields we collected on step 1.
+          const { data: { user: u } } = await supabase.auth.getUser();
+          if (u) await persistProfileFields(u.id);
           toast.success("Welcome to JagX! 🐆");
           navigate("/");
         }
