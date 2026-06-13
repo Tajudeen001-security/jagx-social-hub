@@ -424,6 +424,7 @@ const DirectMessagePage = () => {
           <div className="flex items-center gap-3 relative">
             <button onClick={() => setActiveCall({ type: "audio" })} className="text-foreground"><Phone className="size-4" /></button>
             <button onClick={() => setActiveCall({ type: "video" })} className="text-foreground"><Video className="size-4" /></button>
+            <button onClick={() => setShowTheme(true)} className="text-foreground" aria-label="Theme"><Palette className="size-4" /></button>
             <button onClick={() => setShowMenu(!showMenu)} className="text-foreground"><MoreVertical className="size-4" /></button>
             {showMenu && (
               <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-surface border border-border/30 shadow-xl overflow-hidden z-50">
@@ -493,6 +494,47 @@ const DirectMessagePage = () => {
             <button onClick={() => setFullImage(null)} className="p-2 rounded-full bg-white/10"><X className="size-5 text-white" /></button>
           </div>
           <img src={fullImage} className="max-w-full max-h-[85vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {showTheme && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end" onClick={() => setShowTheme(false)}>
+          <div className="w-full bg-background border-t border-border/30 rounded-t-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-champagne">Chat theme</h3>
+              <button onClick={() => setShowTheme(false)}><X className="size-5 text-foreground" /></button>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Bubble color</p>
+              <div className="grid grid-cols-3 gap-2">
+                {THEME_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => saveTheme(c.value)}
+                    className={`px-3 py-3 rounded-xl text-xs font-medium border ${theme?.theme_color === c.value || (!theme?.theme_color && c.value === null) ? "border-gold" : "border-border/30"}`}
+                    style={c.value ? { background: c.value, color: "#fff" } : undefined}
+                  >
+                    {c.value ? c.name : "Gold"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Background image</p>
+              <div className="flex gap-2">
+                <button onClick={() => themeBgRef.current?.click()} className="flex-1 px-3 py-3 rounded-xl gold-gradient text-primary-foreground text-xs font-bold">
+                  Upload photo
+                </button>
+                {theme?.background_url && (
+                  <button onClick={() => saveTheme(theme.theme_color ?? null, null)} className="px-3 py-3 rounded-xl bg-surface border border-border/30 text-xs">
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input ref={themeBgRef} type="file" accept="image/*" className="hidden" onChange={handleThemeBg} />
+              <p className="text-[10px] text-muted-foreground mt-2">Theme only applies to this chat, only for you.</p>
+            </div>
+          </div>
         </div>
       )}
 
