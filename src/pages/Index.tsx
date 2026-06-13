@@ -30,18 +30,21 @@ const FeedPage = () => {
   const [viewingStories, setViewingStories] = useState<any[] | null>(null);
   const [viewingIndex, setViewingIndex] = useState(0);
   const [posts, setPosts] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     loadStories();
     loadPosts();
 
-    // Real-time feed updates
+    // Realtime: do NOT auto-refresh feed (keeps reading position stable).
+    // Instead, surface a "New posts" pill so users decide when to load.
     const channel = supabase.channel("feed-updates")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => loadPosts())
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => setPendingCount(c => c + 1))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const refreshFeed = () => { setPendingCount(0); loadPosts(); loadStories(); };
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories").select("*").gte("expires_at", new Date().toISOString()).order("created_at", { ascending: false });
@@ -148,6 +151,15 @@ const FeedPage = () => {
           </div>
         </div>
       </header>
+
+      {pendingCount > 0 && (
+        <div className="sticky top-14 z-30 flex justify-center pt-2">
+          <button onClick={refreshFeed}
+            className="px-4 py-2 rounded-full gold-gradient text-primary-foreground text-xs font-bold uppercase tracking-widest shadow-lg">
+            ↑ {pendingCount} new post{pendingCount > 1 ? "s" : ""} — tap to load
+          </button>
+        </div>
+      )}
 
       {/* Stories */}
       <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar">

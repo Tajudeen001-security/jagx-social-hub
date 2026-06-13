@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -7,6 +8,8 @@ import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
 type AuthMode = "login" | "signup" | "forgot";
 type AuthMethod = "email" | "phone";
 type CodeStep = "request" | "verify";
+
+const COUNTRIES = ["Nigeria","United States","United Kingdom","Ghana","South Africa","Kenya","Canada","Germany","France","India","Brazil","Other"];
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -23,6 +26,74 @@ const AuthPage = () => {
   const [forgotStep, setForgotStep] = useState<CodeStep>("request");
   const [signupStep, setSignupStep] = useState<CodeStep>("request");
   const [newPassword, setNewPassword] = useState("");
+  // Expanded signup profile fields
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dob, setDob] = useState("");
+  const [sex, setSex] = useState("");
+  const [country, setCountry] = useState("");
+  const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [detectedIp, setDetectedIp] = useState<string | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const ageFromDob = (d: string) => {
+    if (!d) return 0;
+    const dt = new Date(d);
+    const diff = Date.now() - dt.getTime();
+    return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+  };
+
+  const detectLocation = async () => {
+    setGeoLoading(true);
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      const j = await res.json();
+      if (j?.country_name) {
+        setDetectedCountry(j.country_name);
+        setDetectedIp(j.ip || null);
+        setCountry(j.country_name);
+        if (j.region) setRegion(j.region);
+        if (j.city) setCity(j.city);
+        toast.success(`Location detected: ${j.country_name}`);
+      }
+    } catch { toast.error("Couldn't auto-detect location, please pick manually"); }
+    finally { setGeoLoading(false); }
+  };
+
+  const persistProfileFields = async (userId: string) => {
+    await supabase.from("profiles").update({
+      first_name: firstName || null,
+      middle_name: middleName || null,
+      last_name: lastName || null,
+      date_of_birth: dob || null,
+      sex: sex || null,
+      country: country || detectedCountry || null,
+      region: region || null,
+      city: city || null,
+      address: address || null,
+      signup_ip: detectedIp,
+      signup_country: detectedCountry,
+      last_known_country: detectedCountry,
+      country_locked: !!detectedCountry,
+      location: [city, country].filter(Boolean).join(", ") || null,
+    } as any).eq("user_id", userId);
+  };
+
+  const handleSocial = async (provider: "google" | "apple") => {
+    setLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
+      if (result.error) throw result.error;
+      if (result.redirected) return; // browser redirects
+      navigate("/");
+    } catch (e: any) {
+      toast.error(e?.message || `${provider} sign-in failed`);
+    } finally { setLoading(false); }
+  };
 
   // Email OTP via Supabase's built-in mailer — no Resend / no domain verification needed.
   // The default Supabase email template embeds a 6-digit {{ .Token }}.
@@ -66,6 +137,10 @@ const AuthPage = () => {
           if (!password || password.length < 6) {
             throw new Error("Choose a password (min 6 chars) before we send the code");
           }
+          if (!firstName || !lastName) throw new Error("First and last name are required");
+          if (!dob || ageFromDob(dob) < 13) throw new Error("You must be at least 13 years old");
+          if (!sex) throw new Error("Please select your sex");
+          if (!country) throw new Error("Country is required — tap Auto-detect");
           const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
@@ -86,6 +161,9 @@ const AuthPage = () => {
           // Session active — set the chosen password so the user can use email+password later.
           const { error: uErr } = await supabase.auth.updateUser({ password });
           if (uErr) throw uErr;
+          // Persist the full profile fields we collected on step 1.
+          const { data: { user: u } } = await supabase.auth.getUser();
+          if (u) await persistProfileFields(u.id);
           toast.success("Welcome to JagX! 🐆");
           navigate("/");
         }
@@ -184,14 +262,58 @@ const AuthPage = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm"
-              required
-            />
+            <>
+              <input type="text" placeholder="Username (public handle)" value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+              {signupStep === "request" && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+                    <input type="text" placeholder="Last name" value={lastName} onChange={e => setLastName(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" required />
+                  </div>
+                  <input type="text" placeholder="Middle name (optional)" value={middleName} onChange={e => setMiddleName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Date of birth</label>
+                      <input type="date" value={dob} onChange={e => setDob(e.target.value)}
+                        className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm" required />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Sex</label>
+                      <select value={sex} onChange={e => setSex(e.target.value)}
+                        className="w-full px-3 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm" required>
+                        <option value="">Select…</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="button" onClick={detectLocation} disabled={geoLoading}
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-gold/30 text-gold text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                    {geoLoading ? "Detecting…" : detectedCountry ? `📍 ${detectedCountry} (auto)` : "Auto-detect my location"}
+                  </button>
+                  <select value={country} onChange={e => setCountry(e.target.value)}
+                    disabled={!!detectedCountry}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground outline-none focus:border-primary text-sm disabled:opacity-70" required>
+                    <option value="">Country *</option>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Region / State" value={region} onChange={e => setRegion(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                    <input type="text" placeholder="City" value={city} onChange={e => setCity(e.target.value)}
+                      className="px-3 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                  </div>
+                  <input type="text" placeholder="Address (optional)" value={address} onChange={e => setAddress(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm" />
+                </>
+              )}
+            </>
           )}
 
           {(mode === "forgot" || method === "email") ? (
@@ -307,6 +429,32 @@ const AuthPage = () => {
           </>
           )}
         </p>
+
+        {/* Social sign-in */}
+        {mode !== "forgot" && (
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Or continue with</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => handleSocial("google")} disabled={loading}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                <svg viewBox="0 0 24 24" className="size-4"><path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.4-1.7 4.1-5.4 4.1-3.3 0-5.9-2.7-5.9-6s2.6-6 5.9-6c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.6 14.7 2.7 12 2.7 6.9 2.7 2.8 6.8 2.8 12s4.1 9.3 9.2 9.3c5.3 0 8.8-3.7 8.8-9 0-.6 0-1-.1-1.5H12z"/></svg>
+                Google
+              </button>
+              <button type="button" onClick={() => handleSocial("apple")} disabled={loading}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
+                <svg viewBox="0 0 24 24" className="size-4 fill-current"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2.1-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.8 1.2 1.8 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.3-1.2 3.1-2.5.7-1 1.1-1.9 1.3-2.5-1-.4-2.7-1.4-2.7-4.2zM14 4.4c.7-.8 1.1-2 1-3.1-1 .1-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.3-.6 2.9-1.4z"/></svg>
+                Apple
+              </button>
+            </div>
+            <p className="text-[9px] text-muted-foreground text-center mt-3 leading-relaxed">
+              By signing in you agree to our <button type="button" onClick={() => navigate("/privacy")} className="text-gold underline">Privacy Policy & Terms</button>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

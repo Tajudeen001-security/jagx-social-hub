@@ -26,6 +26,7 @@ export type Database = {
           id: string
           image_url: string | null
           impressions: number
+          is_house_ad: boolean
           link_url: string | null
           max_impressions: number
           placement_frequency: number
@@ -45,6 +46,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           impressions?: number
+          is_house_ad?: boolean
           link_url?: string | null
           max_impressions?: number
           placement_frequency?: number
@@ -64,6 +66,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           impressions?: number
+          is_house_ad?: boolean
           link_url?: string | null
           max_impressions?: number
           placement_frequency?: number
@@ -132,6 +135,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_training_samples: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          source: string
+          source_id: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          source: string
+          source_id?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          source?: string
+          source_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       api_keys: {
         Row: {
@@ -300,6 +330,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversation_pins: {
+        Row: {
+          id: string
+          peer_id: string
+          pinned_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          peer_id: string
+          pinned_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          peer_id?: string
+          pinned_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       favorites: {
         Row: {
@@ -613,6 +664,7 @@ export type Database = {
           id: string
           is_read: boolean
           message_type: string
+          pinned_at: string | null
           receiver_id: string
           sender_id: string
           updated_at: string
@@ -623,6 +675,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message_type?: string
+          pinned_at?: string | null
           receiver_id: string
           sender_id: string
           updated_at?: string
@@ -633,6 +686,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message_type?: string
+          pinned_at?: string | null
           receiver_id?: string
           sender_id?: string
           updated_at?: string
@@ -812,49 +866,94 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          ai_training_consent: boolean
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
+          city: string | null
+          country: string | null
+          country_locked: boolean
           created_at: string
+          date_of_birth: string | null
           display_name: string | null
+          first_name: string | null
           id: string
           is_verified: boolean
           jagx_coins: number
+          last_known_country: string | null
+          last_name: string | null
           location: string | null
+          middle_name: string | null
           privacy_setting: string
+          region: string | null
+          sex: string | null
+          signup_country: string | null
+          signup_ip: string | null
           updated_at: string
           user_id: string
           username: string | null
+          vpn_suspected: boolean
         }
         Insert: {
+          address?: string | null
+          ai_training_consent?: boolean
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
+          city?: string | null
+          country?: string | null
+          country_locked?: boolean
           created_at?: string
+          date_of_birth?: string | null
           display_name?: string | null
+          first_name?: string | null
           id?: string
           is_verified?: boolean
           jagx_coins?: number
+          last_known_country?: string | null
+          last_name?: string | null
           location?: string | null
+          middle_name?: string | null
           privacy_setting?: string
+          region?: string | null
+          sex?: string | null
+          signup_country?: string | null
+          signup_ip?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
+          vpn_suspected?: boolean
         }
         Update: {
+          address?: string | null
+          ai_training_consent?: boolean
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
+          city?: string | null
+          country?: string | null
+          country_locked?: boolean
           created_at?: string
+          date_of_birth?: string | null
           display_name?: string | null
+          first_name?: string | null
           id?: string
           is_verified?: boolean
           jagx_coins?: number
+          last_known_country?: string | null
+          last_name?: string | null
           location?: string | null
+          middle_name?: string | null
           privacy_setting?: string
+          region?: string | null
+          sex?: string | null
+          signup_country?: string | null
+          signup_ip?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
+          vpn_suspected?: boolean
         }
         Relationships: []
       }

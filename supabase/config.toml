@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.ai-v1-chat]
 verify_jwt = false
+
+[functions.og-profile]
+verify_jwt = false
