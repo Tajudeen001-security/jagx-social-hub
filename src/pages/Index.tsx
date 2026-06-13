@@ -13,6 +13,7 @@ import StructuredData from "@/components/StructuredData";
 import Canonical from "@/components/Canonical";
 import NotificationBell from "@/components/NotificationBell";
 import MessageIconBadge from "@/components/MessageIconBadge";
+import { buildUserAffinity, rankPosts, type UserAffinity } from "@/lib/feedRank";
 
 interface StoryGroup {
   userId: string;
@@ -72,15 +73,22 @@ const FeedPage = () => {
       .limit(50);
     if (!data || data.length === 0) { setPosts([]); return; }
     const userIds = [...new Set(data.map(p => p.user_id))];
-    const [{ data: profiles }, { data: presence }] = await Promise.all([
+    const postIds = data.map(p => p.id);
+    const [{ data: profiles }, { data: presence }, { data: likeRows }, { data: commentRows }] = await Promise.all([
       supabase.from("profiles").select("user_id, username, avatar_url, is_verified").in("user_id", userIds),
       supabase.from("user_presence").select("user_id, is_online, last_seen").in("user_id", userIds),
+      supabase.from("likes").select("post_id").in("post_id", postIds),
+      supabase.from("comments").select("post_id").in("post_id", postIds),
     ]);
     const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
     const presenceMap = new Map(presence?.map(p => [p.user_id, p]) || []);
+    const likeMap = new Map<string, number>();
+    likeRows?.forEach((l: any) => likeMap.set(l.post_id, (likeMap.get(l.post_id) || 0) + 1));
+    const commentMap = new Map<string, number>();
+    commentRows?.forEach((c: any) => commentMap.set(c.post_id, (commentMap.get(c.post_id) || 0) + 1));
     const ONLINE_WINDOW_MS = 2 * 60 * 1000; // consider online if seen in last 2 min
 
-    setPosts(data.map(post => {
+    const enriched = data.map(post => {
       const p = profileMap.get(post.user_id);
       const pres = presenceMap.get(post.user_id);
       const isOnline = !!pres && (pres.is_online === true || (pres.last_seen && Date.now() - new Date(pres.last_seen).getTime() < ONLINE_WINDOW_MS));
@@ -91,7 +99,17 @@ const FeedPage = () => {
         isVerified: p?.is_verified || false,
         isOnline,
       };
-    }).sort(() => Math.random() - 0.5));
+    });
+
+    // Smart ranking: signed-in users get personalized order; guests get
+    // a popularity + recency blend (no personal affinity).
+    let affinity: UserAffinity;
+    if (user) {
+      affinity = await buildUserAffinity(user.id);
+    } else {
+      affinity = { authors: new Map(), hashtags: new Map(), follows: new Set(), searches: [] };
+    }
+    setPosts(rankPosts(enriched, affinity, likeMap, commentMap));
   };
 
   const openStory = (group: StoryGroup) => {
