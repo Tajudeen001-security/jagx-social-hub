@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Image, Type, MapPin, Hash, X, Loader2, Coins, BarChart3, Plus } from "lucide-react";
+import { Camera, Image, Type, MapPin, Hash, X, Loader2, Coins, BarChart3, Plus, Sparkles, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,99 @@ const CreatePage = () => {
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // JagX AI post generator
+  const [showAi, setShowAi] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiMode, setAiMode] = useState<"text" | "image" | "both">("both");
+  const [aiBusy, setAiBusy] = useState(false);
+
+  const generateWithAI = async () => {
+    if (!aiPrompt.trim() || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      } as Record<string, string>;
+
+      // 1) Caption / text
+      if (aiMode === "text" || aiMode === "both") {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            messages: [
+              { role: "user", content: `Write a punchy, ready-to-post social caption for JagX Buddy Connect about: ${aiPrompt}. Keep it under 280 characters, add 3-5 fitting hashtags at the end, and a couple of emojis. Return ONLY the caption — no preface, no quotes.` },
+            ],
+          }),
+        });
+        if (!resp.ok || !resp.body) throw new Error("AI text failed");
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let acc = "";
+        setContent("");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) !== -1) {
+            let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (!line.startsWith("data: ")) continue;
+            const j = line.slice(6).trim();
+            if (j === "[DONE]") break;
+            try {
+              const p = JSON.parse(j);
+              const c = p.choices?.[0]?.delta?.content;
+              if (c) { acc += c; setContent(acc); }
+            } catch { /* partial */ }
+          }
+        }
+        // auto-extract hashtags
+        const tags = (acc.match(/#[\w\d_]+/g) || []).map(t => t.replace(/^#/, ""));
+        if (tags.length) setHashtags(tags.join(", "));
+      }
+
+      // 2) Image
+      if (aiMode === "image" || aiMode === "both") {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            messages: [{ role: "user", content: `Create a stunning, social-media-ready square image for: ${aiPrompt}. Vivid, eye-catching, professional, no text overlays.` }],
+            generateImage: true,
+          }),
+        });
+        if (!resp.ok) throw new Error("AI image failed");
+        const data = await resp.json();
+        if (data.imageUrl) {
+          setMediaPreview(data.imageUrl);
+          setMediaType("image");
+          // Convert data URL to File so it uploads on Post
+          if (data.imageUrl.startsWith("data:")) {
+            const r = await fetch(data.imageUrl);
+            const blob = await r.blob();
+            setMediaFile(new File([blob], `jagx-ai-${Date.now()}.png`, { type: blob.type || "image/png" }));
+          } else {
+            const r = await fetch(data.imageUrl);
+            const blob = await r.blob();
+            setMediaFile(new File([blob], `jagx-ai-${Date.now()}.png`, { type: blob.type || "image/png" }));
+          }
+        }
+      }
+
+      toast.success("Generated! Review and post 🐆");
+      setShowAi(false);
+    } catch (e: any) {
+      toast.error(e.message || "AI generation failed");
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const handleMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,6 +204,41 @@ const CreatePage = () => {
       </header>
 
       <div className="p-4 space-y-4">
+        {/* JagX AI generator */}
+        <button onClick={() => setShowAi(s => !s)}
+          className="w-full p-3 rounded-xl border border-gold/40 bg-surface flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-gold" />
+            <span className="text-sm text-foreground">Generate with JagX Buddy AI</span>
+          </div>
+          <span className="text-[10px] uppercase tracking-widest text-gold">{showAi ? "Hide" : "Open"}</span>
+        </button>
+        {showAi && (
+          <div className="p-4 rounded-xl bg-surface border border-gold/30 space-y-3">
+            <textarea
+              value={aiPrompt}
+              onChange={e => setAiPrompt(e.target.value)}
+              placeholder="Describe your post… e.g. 'Motivational Monday quote for African creators, gold/black vibe'"
+              className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none"
+              rows={3}
+            />
+            <div className="flex gap-2">
+              {(["text","image","both"] as const).map(m => (
+                <button key={m} onClick={() => setAiMode(m)}
+                  className={`flex-1 py-2 rounded-lg text-[10px] uppercase tracking-widest font-bold ${aiMode===m ? "gold-gradient text-primary-foreground" : "bg-background border border-border text-foreground"}`}>
+                  {m === "both" ? "Caption + Image" : m === "text" ? "Caption only" : "Image only"}
+                </button>
+              ))}
+            </div>
+            <button onClick={generateWithAI} disabled={aiBusy || !aiPrompt.trim()}
+              className="w-full py-2.5 rounded-lg gold-gradient text-primary-foreground text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
+              {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
+              {aiBusy ? "Generating…" : "Generate"}
+            </button>
+            <p className="text-[10px] text-muted-foreground">Free for everyone. Review and edit before posting.</p>
+          </div>
+        )}
+
         {/* Post type toggle */}
         <div className="flex gap-2">
           <button onClick={() => setPostType("post")}
