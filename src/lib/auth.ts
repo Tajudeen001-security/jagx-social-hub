@@ -226,12 +226,43 @@ export async function signInWithGoogle(): Promise<AuthResponse> {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: redirectUrl,
+        redirectTo: `${redirectUrl}/auth`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
       },
     });
 
     if (error) throw error;
     return { success: true, message: "Redirecting to Google..." };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof AuthError ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Sign in with X (Twitter) OAuth
+ */
+export async function signInWithX(): Promise<AuthResponse> {
+  try {
+    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "twitter",
+      options: {
+        redirectTo: `${redirectUrl}/auth`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) throw error;
+    return { success: true, message: "Redirecting to X..." };
   } catch (error) {
     return {
       success: false,
