@@ -188,8 +188,15 @@ const GroupChatPage = () => {
             body = parts.slice(1).join("\n\n");
           }
           return (
-            <div
-              key={msg.id}
+            <div key={msg.id}>
+              {firstUnreadId === msg.id && (
+                <div data-unread-anchor="true" className="flex items-center gap-3 my-2 px-1">
+                  <div className="flex-1 h-[1px] bg-gold/30" />
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-gold/80 font-bold">Unread messages</span>
+                  <div className="flex-1 h-[1px] bg-gold/30" />
+                </div>
+              )}
+              <div
               className={`flex ${isMine ? "justify-end" : "justify-start"}`}
               onTouchStart={(e) => setTouchStart({ x: e.touches[0].clientX, id: msg.id })}
               onTouchEnd={(e) => {
