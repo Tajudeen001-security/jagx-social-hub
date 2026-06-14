@@ -47,8 +47,8 @@ serve(async (req) => {
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
         { global: { headers: { Authorization: auth } } });
-      const { data } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
-      logUserId = (data?.claims?.sub as string) || null;
+      const { data } = await sb.auth.getUser(auth.replace("Bearer ", ""));
+      logUserId = data?.user?.id ?? null;
     } catch { /* ignore */ }
   }
   const logUsage = async (model: string, status: string, error?: string) => {
