@@ -121,7 +121,7 @@ const AuthPage = () => {
         // Session is now active — update password.
         const { error: uErr } = await supabase.auth.updateUser({ password: newPassword });
         if (uErr) throw uErr;
-        toast.success("Password reset. Welcome back!");
+        window.dispatchEvent(new CustomEvent("welcome-back"));
         navigate("/");
       }
     } catch (error: any) {
@@ -166,13 +166,13 @@ const AuthPage = () => {
           // Persist the full profile fields we collected on step 1.
           const { data: { user: u } } = await supabase.auth.getUser();
           if (u) await persistProfileFields(u.id);
-          toast.success("Welcome to JagX! 🐆");
+          window.dispatchEvent(new CustomEvent("welcome-back", { detail: { name: username } }));
           navigate("/");
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back!");
+        window.dispatchEvent(new CustomEvent("welcome-back"));
         navigate("/");
       }
     } catch (error: any) {
