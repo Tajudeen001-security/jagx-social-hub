@@ -410,6 +410,18 @@ const AdminPage = () => {
                     <p className="text-xs text-muted-foreground">@{u.username} • {u.jagx_coins} coins</p>
                   </div>
                 </div>
+                {(u.last_ip || u.last_country || u.last_city) && (
+                  <div className="text-[10px] text-muted-foreground bg-background/50 rounded-lg px-2 py-1.5 space-y-0.5">
+                    <div className="flex items-center gap-1">
+                      <Globe className="size-3 text-gold" />
+                      <span className="text-champagne">
+                        {[u.last_city, u.last_region, u.last_country].filter(Boolean).join(", ") || "Unknown location"}
+                      </span>
+                    </div>
+                    {u.last_ip && <p>IP: <span className="font-mono text-foreground">{u.last_ip}</span></p>}
+                    {u.last_seen_geo_at && <p>Seen: {new Date(u.last_seen_geo_at).toLocaleString()}</p>}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button onClick={() => toggleVerification(u.user_id, u.is_verified)}
                     className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 ${u.is_verified ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>

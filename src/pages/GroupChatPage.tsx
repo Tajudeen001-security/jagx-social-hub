@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send, Users, Plus, Settings, Image, X, UserPlus } from "lucide-react";
+import { ArrowLeft, Send, Users, Plus, Settings, Image, X, UserPlus, Reply } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,8 @@ const GroupChatPage = () => {
   const [showAddMember, setShowAddMember] = useState(false);
   const [searchUser, setSearchUser] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; id: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,8 +53,14 @@ const GroupChatPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [groupId]);
 
+  const didInitialScroll = useRef(false);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: didInitialScroll.current ? "smooth" : "auto",
+    });
+    if (messages.length > 0) didInitialScroll.current = true;
   }, [messages]);
 
   const loadGroup = async () => {
@@ -85,7 +93,13 @@ const GroupChatPage = () => {
     const msgContent = content || input.trim();
     if (!msgContent || !user || !groupId) return;
     if (!content) setInput("");
-    await supabase.from("group_messages").insert({ group_id: groupId, sender_id: user.id, content: msgContent, message_type: type || "text" });
+    let finalContent = msgContent;
+    if (replyTo && (type || "text") === "text") {
+      const preview = replyTo.content.length > 50 ? replyTo.content.slice(0, 50) + "..." : replyTo.content;
+      finalContent = `┃ ${replyTo.username || "User"}: ${preview}\n\n${msgContent}`;
+      setReplyTo(null);
+    }
+    await supabase.from("group_messages").insert({ group_id: groupId, sender_id: user.id, content: finalContent, message_type: type || "text" });
   };
 
   const handleMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,7 +141,7 @@ const GroupChatPage = () => {
               </div>
               <div>
                 <span className="text-sm font-semibold text-champagne">{groupInfo?.name || "Group"}</span>
-                <p className="text-[10px] text-muted-foreground">{members.length} members</p>
+                <p className="text-[10px] text-muted-foreground">{members.length} members · {messages.length} messages</p>
               </div>
             </button>
           </div>
@@ -138,11 +152,29 @@ const GroupChatPage = () => {
       </header>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 pb-20">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3 pb-20">
         {messages.map(msg => {
           const isMine = msg.sender_id === user?.id;
+          const hasReply = msg.message_type === "text" && msg.content.startsWith("┃ ");
+          let replyPreview = "";
+          let body = msg.content;
+          if (hasReply) {
+            const parts = msg.content.split("\n\n");
+            replyPreview = parts[0].replace("┃ ", "");
+            body = parts.slice(1).join("\n\n");
+          }
           return (
-            <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+            <div
+              key={msg.id}
+              className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+              onTouchStart={(e) => setTouchStart({ x: e.touches[0].clientX, id: msg.id })}
+              onTouchEnd={(e) => {
+                if (!touchStart || touchStart.id !== msg.id) return;
+                if (Math.abs(e.changedTouches[0].clientX - touchStart.x) > 60) setReplyTo(msg);
+                setTouchStart(null);
+              }}
+              onDoubleClick={() => setReplyTo(msg)}
+            >
               <div className={`max-w-[80%] ${isMine ? "" : "flex gap-2"}`}>
                 {!isMine && (
                   <div className="size-6 rounded-full bg-surface overflow-hidden shrink-0 mt-1">
@@ -155,19 +187,37 @@ const GroupChatPage = () => {
                   <div className={`rounded-2xl text-sm ${
                     isMine ? "gold-gradient text-primary-foreground rounded-br-md" : "bg-surface border border-border/30 text-foreground rounded-bl-md"
                   } ${msg.message_type !== "text" ? "p-1" : "px-4 py-2.5"}`}>
+                    {hasReply && (
+                      <div className={`text-[10px] mb-1.5 pl-2 border-l-2 ${isMine ? "border-primary-foreground/40 text-primary-foreground/80" : "border-gold/40 text-gold/80"}`}>
+                        {replyPreview}
+                      </div>
+                    )}
                     {msg.message_type === "image" ? <img src={msg.content} className="max-w-[250px] rounded-xl" /> :
                      msg.message_type === "video" ? <video src={msg.content} className="max-w-[250px] rounded-xl" controls playsInline /> :
-                     msg.content}
+                     body}
                   </div>
-                  <p className={`text-[9px] mt-0.5 ${isMine ? "text-right" : ""} text-muted-foreground`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                  <div className={`flex items-center gap-2 text-[9px] mt-0.5 ${isMine ? "justify-end" : ""} text-muted-foreground`}>
+                    <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    <button onClick={() => setReplyTo(msg)} className="hover:text-gold flex items-center gap-0.5"><Reply className="size-2.5" /> reply</button>
+                  </div>
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Reply banner */}
+      {replyTo && (
+        <div className="fixed bottom-16 left-0 right-0 mx-3 p-2 rounded-xl bg-surface border border-gold/30 flex items-center gap-2 z-30">
+          <div className="w-1 h-8 bg-gold rounded-full" />
+          <div className="flex-1 text-xs">
+            <p className="text-gold font-semibold">Replying to {replyTo.username || "User"}</p>
+            <p className="text-muted-foreground truncate">{replyTo.content.slice(0, 60)}</p>
+          </div>
+          <button onClick={() => setReplyTo(null)} className="text-muted-foreground"><X className="size-4" /></button>
+        </div>
+      )}
 
       {/* Input */}
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/80 backdrop-blur-xl border-t border-border/30">
