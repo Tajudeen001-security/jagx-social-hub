@@ -12,6 +12,7 @@ import CoHostNotice from "@/components/CoHostNotice";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import SeoCheck from "@/components/SeoCheck";
 import CookieConsent from "@/components/CookieConsent";
+import WelcomeBackOverlay from "@/components/WelcomeBackOverlay";
 import Index from "./pages/Index";
 import ReelsPage from "./pages/ReelsPage";
 import ChatPage from "./pages/ChatPage";
@@ -57,6 +58,7 @@ const AppContent = () => {
       <AnalyticsTracker />
       <SeoCheck />
       <CookieConsent />
+      <WelcomeBackOverlay />
       <IncomingCallModal
         onAccept={(call) => setActiveCall({
           remoteUserId: call.callerId,
