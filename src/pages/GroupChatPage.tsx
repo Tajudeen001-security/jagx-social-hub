@@ -234,6 +234,7 @@ const GroupChatPage = () => {
                 </div>
               </div>
             </div>
+            </div>
           );
         })}
       </div>
