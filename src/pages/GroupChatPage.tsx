@@ -21,6 +21,7 @@ const GroupChatPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [messages, setMessages] = useState<GroupMessage[]>([]);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [groupInfo, setGroupInfo] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -56,6 +57,14 @@ const GroupChatPage = () => {
   const didInitialScroll = useRef(false);
   useEffect(() => {
     if (!scrollRef.current) return;
+    if (!didInitialScroll.current && firstUnreadId) {
+      const el = scrollRef.current.querySelector<HTMLElement>(`[data-unread-anchor="true"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "auto" });
+        if (messages.length > 0) didInitialScroll.current = true;
+        return;
+      }
+    }
     scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: didInitialScroll.current ? "smooth" : "auto",
@@ -80,13 +89,28 @@ const GroupChatPage = () => {
   };
 
   const loadMessages = async () => {
-    if (!groupId) return;
+    if (!groupId || !user) return;
+    // Find when this user last opened the group, then mark as read.
+    const { data: readRow } = await supabase
+      .from("group_reads" as any)
+      .select("last_read_at")
+      .eq("user_id", user.id)
+      .eq("group_id", groupId)
+      .maybeSingle();
+    const lastRead = (readRow as any)?.last_read_at || "1970-01-01T00:00:00Z";
     const { data } = await supabase.from("group_messages").select("*").eq("group_id", groupId).order("created_at", { ascending: true }).limit(200);
     if (!data) return;
     const userIds = [...new Set(data.map(m => m.sender_id))];
     const { data: profiles } = await supabase.from("profiles").select("user_id, username, avatar_url").in("user_id", userIds);
     const pMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+    const firstUnread = data.find((m: any) => m.sender_id !== user.id && new Date(m.created_at) > new Date(lastRead));
+    setFirstUnreadId(firstUnread?.id ?? null);
     setMessages(data.map(m => ({ ...m, username: pMap.get(m.sender_id)?.username || "user", avatar_url: pMap.get(m.sender_id)?.avatar_url })));
+    // Mark this group as read for the current user
+    await supabase.from("group_reads" as any).upsert(
+      { user_id: user.id, group_id: groupId, last_read_at: new Date().toISOString() },
+      { onConflict: "user_id,group_id" },
+    );
   };
 
   const sendMessage = async (content?: string, type?: string) => {
@@ -164,8 +188,15 @@ const GroupChatPage = () => {
             body = parts.slice(1).join("\n\n");
           }
           return (
-            <div
-              key={msg.id}
+            <div key={msg.id}>
+              {firstUnreadId === msg.id && (
+                <div data-unread-anchor="true" className="flex items-center gap-3 my-2 px-1">
+                  <div className="flex-1 h-[1px] bg-gold/30" />
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-gold/80 font-bold">Unread messages</span>
+                  <div className="flex-1 h-[1px] bg-gold/30" />
+                </div>
+              )}
+              <div
               className={`flex ${isMine ? "justify-end" : "justify-start"}`}
               onTouchStart={(e) => setTouchStart({ x: e.touches[0].clientX, id: msg.id })}
               onTouchEnd={(e) => {
@@ -202,6 +233,7 @@ const GroupChatPage = () => {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           );
         })}

@@ -24,6 +24,7 @@ const ChatPage = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [search, setSearch] = useState("");
   const [groups, setGroups] = useState<any[]>([]);
+  const [groupUnread, setGroupUnread] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDesc, setGroupDesc] = useState("");
@@ -69,6 +70,24 @@ const ChatPage = () => {
     const groupIds = memberOf.map(m => m.group_id);
     const { data } = await supabase.from("group_chats").select("*").in("id", groupIds);
     if (data) setGroups(data);
+    // Per-group unread counts based on group_reads.last_read_at
+    const { data: reads } = await supabase
+      .from("group_reads" as any)
+      .select("group_id, last_read_at")
+      .eq("user_id", user.id);
+    const readMap = new Map<string, string>((reads || []).map((r: any) => [r.group_id, r.last_read_at]));
+    const counts: Record<string, number> = {};
+    await Promise.all(groupIds.map(async (gid) => {
+      const since = readMap.get(gid) || "1970-01-01T00:00:00Z";
+      const { count } = await supabase
+        .from("group_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", gid)
+        .neq("sender_id", user.id)
+        .gt("created_at", since);
+      counts[gid] = count || 0;
+    }));
+    setGroupUnread(counts);
   };
 
   const createGroup = async () => {
@@ -177,6 +196,11 @@ const ChatPage = () => {
                 <span className="text-sm font-semibold text-champagne">{g.name}</span>
                 <p className="text-xs text-muted-foreground">Group chat</p>
               </div>
+              {(groupUnread[g.id] || 0) > 0 && (
+                <span className="ml-2 min-w-[20px] h-5 px-1 rounded-full gold-gradient flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">
+                  {groupUnread[g.id] > 99 ? "99+" : groupUnread[g.id]}
+                </span>
+              )}
             </button>
           ))}
         </div>

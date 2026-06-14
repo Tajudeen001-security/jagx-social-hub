@@ -37,6 +37,7 @@ const DirectMessagePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [presence, setPresence] = useState<Presence | null>(null);
@@ -121,7 +122,13 @@ const DirectMessagePage = () => {
       const { data } = await supabase.from("messages").select("*")
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${user.id})`)
         .order("created_at", { ascending: true });
-      if (data) setMessages(data);
+      if (data) {
+        // First unread message FROM the other user — used for the divider
+        // and to scroll to it on initial open.
+        const firstUnread = data.find((m: any) => m.sender_id === userId && !m.is_read);
+        setFirstUnreadId(firstUnread?.id ?? null);
+        setMessages(data);
+      }
       await supabase.from("messages").update({ is_read: true }).eq("sender_id", userId).eq("receiver_id", user.id).eq("is_read", false);
     };
     loadMessages();
@@ -148,7 +155,16 @@ const DirectMessagePage = () => {
   const didInitialScroll = useRef(false);
   useEffect(() => {
     if (!scrollRef.current) return;
-    // Instant snap on first paint (user opens chat), smooth for subsequent updates.
+    // First paint: jump to the first unread divider if there is one,
+    // otherwise snap to the bottom. After that, smooth-scroll on new messages.
+    if (!didInitialScroll.current && firstUnreadId) {
+      const el = scrollRef.current.querySelector<HTMLElement>(`[data-unread-anchor="true"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "auto" });
+        if (messages.length > 0) didInitialScroll.current = true;
+        return;
+      }
+    }
     scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: didInitialScroll.current ? "smooth" : "auto",
@@ -446,12 +462,20 @@ const DirectMessagePage = () => {
         }
       >
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}
-            onClick={() => msg.sender_id !== user?.id && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
-          >
-            {renderMessage(msg)}
+          <div key={msg.id}>
+            {firstUnreadId === msg.id && (
+              <div data-unread-anchor="true" className="flex items-center gap-3 my-3 px-2">
+                <div className="flex-1 h-[1px] bg-gold/30" />
+                <span className="text-[10px] uppercase tracking-[0.3em] text-gold/80 font-bold">Unread messages</span>
+                <div className="flex-1 h-[1px] bg-gold/30" />
+              </div>
+            )}
+            <div
+              className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}
+              onClick={() => msg.sender_id !== user?.id && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
+            >
+              {renderMessage(msg)}
+            </div>
           </div>
         ))}
         {presence?.is_typing && (
