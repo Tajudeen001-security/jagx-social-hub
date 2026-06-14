@@ -19,6 +19,7 @@ export type Database = {
           admin_frequency: number | null
           admin_override: boolean
           admin_section: string | null
+          auto_paused_reason: string | null
           coin_cost: number
           created_at: string
           description: string | null
@@ -34,11 +35,13 @@ export type Database = {
           status: string
           title: string
           user_id: string
+          violation_count: number
         }
         Insert: {
           admin_frequency?: number | null
           admin_override?: boolean
           admin_section?: string | null
+          auto_paused_reason?: string | null
           coin_cost?: number
           created_at?: string
           description?: string | null
@@ -54,11 +57,13 @@ export type Database = {
           status?: string
           title: string
           user_id: string
+          violation_count?: number
         }
         Update: {
           admin_frequency?: number | null
           admin_override?: boolean
           admin_section?: string | null
+          auto_paused_reason?: string | null
           coin_cost?: number
           created_at?: string
           description?: string | null
@@ -74,8 +79,65 @@ export type Database = {
           status?: string
           title?: string
           user_id?: string
+          violation_count?: number
         }
         Relationships: []
+      }
+      ai_api_usage: {
+        Row: {
+          api_key_id: string | null
+          completion_tokens: number | null
+          created_at: string
+          endpoint: string | null
+          error_message: string | null
+          id: string
+          ip: string | null
+          latency_ms: number | null
+          model: string | null
+          prompt_tokens: number | null
+          status: string
+          total_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          api_key_id?: string | null
+          completion_tokens?: number | null
+          created_at?: string
+          endpoint?: string | null
+          error_message?: string | null
+          id?: string
+          ip?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          total_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          api_key_id?: string | null
+          completion_tokens?: number | null
+          created_at?: string
+          endpoint?: string | null
+          error_message?: string | null
+          id?: string
+          ip?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          total_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_api_usage_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_conversations: {
         Row: {
@@ -911,8 +973,13 @@ export type Database = {
           id: string
           is_verified: boolean
           jagx_coins: number
+          last_city: string | null
+          last_country: string | null
+          last_ip: string | null
           last_known_country: string | null
           last_name: string | null
+          last_region: string | null
+          last_seen_geo_at: string | null
           location: string | null
           middle_name: string | null
           privacy_setting: string
@@ -941,8 +1008,13 @@ export type Database = {
           id?: string
           is_verified?: boolean
           jagx_coins?: number
+          last_city?: string | null
+          last_country?: string | null
+          last_ip?: string | null
           last_known_country?: string | null
           last_name?: string | null
+          last_region?: string | null
+          last_seen_geo_at?: string | null
           location?: string | null
           middle_name?: string | null
           privacy_setting?: string
@@ -971,8 +1043,13 @@ export type Database = {
           id?: string
           is_verified?: boolean
           jagx_coins?: number
+          last_city?: string | null
+          last_country?: string | null
+          last_ip?: string | null
           last_known_country?: string | null
           last_name?: string | null
+          last_region?: string | null
+          last_seen_geo_at?: string | null
           location?: string | null
           middle_name?: string | null
           privacy_setting?: string
