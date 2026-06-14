@@ -462,12 +462,20 @@ const DirectMessagePage = () => {
         }
       >
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}
-            onClick={() => msg.sender_id !== user?.id && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
-          >
-            {renderMessage(msg)}
+          <div key={msg.id}>
+            {firstUnreadId === msg.id && (
+              <div data-unread-anchor="true" className="flex items-center gap-3 my-3 px-2">
+                <div className="flex-1 h-[1px] bg-gold/30" />
+                <span className="text-[10px] uppercase tracking-[0.3em] text-gold/80 font-bold">Unread messages</span>
+                <div className="flex-1 h-[1px] bg-gold/30" />
+              </div>
+            )}
+            <div
+              className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}
+              onClick={() => msg.sender_id !== user?.id && setSelectedMsg(selectedMsg === msg.id ? null : msg.id)}
+            >
+              {renderMessage(msg)}
+            </div>
           </div>
         ))}
         {presence?.is_typing && (
