@@ -66,14 +66,13 @@ const AdsPage = () => {
     setCreating(true);
     let imageUrl = "";
     if (imageFile) {
-      const path = `ads/${user.id}/${Date.now()}.${imageFile.name.split(".").pop()}`;
-      const { error } = await supabase.storage.from("posts").upload(path, imageFile);
-      if (error) { toast.error("Upload failed"); setCreating(false); return; }
+      // Storage RLS requires the first folder = auth.uid()
+      const ext = imageFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/ads/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("posts").upload(path, imageFile, { upsert: false });
+      if (upErr) { toast.error(`Image upload failed: ${upErr.message}`); setCreating(false); return; }
       imageUrl = supabase.storage.from("posts").getPublicUrl(path).data.publicUrl;
     }
-
-    // Deduct coins
-    await supabase.from("profiles").update({ jagx_coins: (profile?.jagx_coins || 0) - plan.cost }).eq("user_id", user.id);
 
     const { error } = await supabase.from("ads").insert({
       user_id: user.id, title: title.trim(), description: description.trim(),
@@ -83,8 +82,17 @@ const AdsPage = () => {
       placement_frequency: placementFrequency,
     });
 
-    if (error) toast.error("Failed to create ad");
-    else { toast.success("Ad created! 🎉"); setShowCreate(false); setTitle(""); setDescription(""); setLinkUrl(""); loadAds(); }
+    if (error) {
+      toast.error(`Failed to create ad: ${error.message}`);
+    } else {
+      // Deduct coins only after the ad insert succeeded
+      await supabase.from("profiles").update({ jagx_coins: (profile?.jagx_coins || 0) - plan.cost }).eq("user_id", user.id);
+      toast.success("Ad created! 🎉");
+      setShowCreate(false);
+      setTitle(""); setDescription(""); setLinkUrl(""); setImageFile(null);
+      loadAds();
+      supabase.from("profiles").select("jagx_coins").eq("user_id", user.id).single().then(({ data }) => setProfile(data));
+    }
     setCreating(false);
   };
 
