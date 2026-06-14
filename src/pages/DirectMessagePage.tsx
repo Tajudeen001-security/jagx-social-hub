@@ -37,6 +37,7 @@ const DirectMessagePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [presence, setPresence] = useState<Presence | null>(null);
@@ -121,7 +122,13 @@ const DirectMessagePage = () => {
       const { data } = await supabase.from("messages").select("*")
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${user.id})`)
         .order("created_at", { ascending: true });
-      if (data) setMessages(data);
+      if (data) {
+        // First unread message FROM the other user — used for the divider
+        // and to scroll to it on initial open.
+        const firstUnread = data.find((m: any) => m.sender_id === userId && !m.is_read);
+        setFirstUnreadId(firstUnread?.id ?? null);
+        setMessages(data);
+      }
       await supabase.from("messages").update({ is_read: true }).eq("sender_id", userId).eq("receiver_id", user.id).eq("is_read", false);
     };
     loadMessages();
@@ -148,7 +155,16 @@ const DirectMessagePage = () => {
   const didInitialScroll = useRef(false);
   useEffect(() => {
     if (!scrollRef.current) return;
-    // Instant snap on first paint (user opens chat), smooth for subsequent updates.
+    // First paint: jump to the first unread divider if there is one,
+    // otherwise snap to the bottom. After that, smooth-scroll on new messages.
+    if (!didInitialScroll.current && firstUnreadId) {
+      const el = scrollRef.current.querySelector<HTMLElement>(`[data-unread-anchor="true"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "auto" });
+        if (messages.length > 0) didInitialScroll.current = true;
+        return;
+      }
+    }
     scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: didInitialScroll.current ? "smooth" : "auto",
