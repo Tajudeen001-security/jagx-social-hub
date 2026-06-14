@@ -85,13 +85,13 @@ const AuthPage = () => {
   const handleSocial = async (provider: "google" | "apple") => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin },
+      const { lovable } = await import("@/integrations/lovable");
+      const result = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
       });
-      if (error) throw error;
-      // Browser will redirect to the provider; on return the AuthContext
-      // session listener picks it up and ProtectedRoute lets the user in.
+      if (result.error) throw result.error;
+      // If redirected, browser handles the rest. Otherwise tokens are set
+      // and AuthContext picks up the new session.
     } catch (e: any) {
       toast.error(e?.message || `${provider} sign-in failed`);
     } finally { setLoading(false); }
