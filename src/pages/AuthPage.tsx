@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -86,10 +85,13 @@ const AuthPage = () => {
   const handleSocial = async (provider: "google" | "apple") => {
     setLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
-      if (result.error) throw result.error;
-      if (result.redirected) return; // browser redirects
-      navigate("/");
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      // Browser will redirect to the provider; on return the AuthContext
+      // session listener picks it up and ProtectedRoute lets the user in.
     } catch (e: any) {
       toast.error(e?.message || `${provider} sign-in failed`);
     } finally { setLoading(false); }
