@@ -38,13 +38,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: auth } } },
     );
-    const { data, error } = await supabase.auth.getClaims(auth.replace("Bearer ", ""));
-    if (error || !data?.claims?.sub) {
+    const { data, error } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
+    if (error || !data?.user?.id) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = data.claims.sub;
+    const userId = data.user.id;
 
     const fwd = req.headers.get("x-forwarded-for") || "";
     const ip = fwd.split(",")[0].trim() || req.headers.get("cf-connecting-ip") || "";
