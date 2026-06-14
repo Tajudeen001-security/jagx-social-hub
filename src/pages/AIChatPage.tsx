@@ -250,7 +250,7 @@ const AIChatPage = () => {
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 pb-32">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3 pb-32">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[88%] rounded-2xl text-sm ${

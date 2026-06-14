@@ -141,7 +141,7 @@ const GroupChatPage = () => {
               </div>
               <div>
                 <span className="text-sm font-semibold text-champagne">{groupInfo?.name || "Group"}</span>
-                <p className="text-[10px] text-muted-foreground">{members.length} members</p>
+                <p className="text-[10px] text-muted-foreground">{members.length} members · {messages.length} messages</p>
               </div>
             </button>
           </div>
