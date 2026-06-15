@@ -83,19 +83,23 @@ const AuthPage = () => {
   };
 
   const handleSocial = async (provider: "google" | "apple") => {
-    setLoading(true);
-    try {
-      const { lovable } = await import("@/integrations/lovable");
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
-      });
-      if (result.error) throw result.error;
-      // If redirected, browser handles the rest. Otherwise tokens are set
-      // and AuthContext picks up the new session.
-    } catch (e: any) {
-      toast.error(e?.message || `${provider} sign-in failed`);
-    } finally { setLoading(false); }
-  };
+  setLoading(true);
+  try {
+    // Use standard Supabase OAuth instead of Lovable's wrapper
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: provider === "apple" ? "apple" : "google",
+      options: {
+        // Redirect to the root URL; the app's ProtectedRoute will handle the rest
+        redirectTo: window.location.origin, 
+      },
+    });
+    if (error) throw error;
+  } catch (e: any) {
+    toast.error(e?.message || `${provider} sign-in failed`);
+  } finally { 
+    setLoading(false); 
+  }
+};
 
   // Email OTP via Supabase's built-in mailer — no Resend / no domain verification needed.
   // The default Supabase email template embeds a 6-digit {{ .Token }}.
