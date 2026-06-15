@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
-
+import { generateCaption, generateImage } from "@/services/aiService";
 const CreatePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
