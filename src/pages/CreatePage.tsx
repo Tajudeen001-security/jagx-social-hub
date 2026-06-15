@@ -28,7 +28,7 @@ const CreatePage = () => {
   const [aiMode, setAiMode] = useState<"text" | "image" | "both">("both");
   const [aiBusy, setAiBusy] = useState(false);
 
-  conconst generateWithAI = async () => {
+  const generateWithAI = async () => {
   if (!aiPrompt.trim() || aiBusy) return;
   setAiBusy(true);
   
