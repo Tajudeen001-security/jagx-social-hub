@@ -28,91 +28,43 @@ const CreatePage = () => {
   const [aiMode, setAiMode] = useState<"text" | "image" | "both">("both");
   const [aiBusy, setAiBusy] = useState(false);
 
-  const generateWithAI = async () => {
-    if (!aiPrompt.trim() || aiBusy) return;
-    setAiBusy(true);
-    try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      } as Record<string, string>;
-
-      // 1) Caption / text
-      if (aiMode === "text" || aiMode === "both") {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            messages: [
-              { role: "user", content: `Write a punchy, ready-to-post social caption for JagX Buddy Connect about: ${aiPrompt}. Keep it under 280 characters, add 3-5 fitting hashtags at the end, and a couple of emojis. Return ONLY the caption — no preface, no quotes.` },
-            ],
-          }),
-        });
-        if (!resp.ok || !resp.body) throw new Error("AI text failed");
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = "";
-        let acc = "";
-        setContent("");
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          let nl: number;
-          while ((nl = buf.indexOf("\n")) !== -1) {
-            let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const j = line.slice(6).trim();
-            if (j === "[DONE]") break;
-            try {
-              const p = JSON.parse(j);
-              const c = p.choices?.[0]?.delta?.content;
-              if (c) { acc += c; setContent(acc); }
-            } catch { /* partial */ }
-          }
-        }
-        // auto-extract hashtags
-        const tags = (acc.match(/#[\w\d_]+/g) || []).map(t => t.replace(/^#/, ""));
-        if (tags.length) setHashtags(tags.join(", "));
-      }
-
-      // 2) Image
-      if (aiMode === "image" || aiMode === "both") {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            messages: [{ role: "user", content: `Create a stunning, social-media-ready square image for: ${aiPrompt}. Vivid, eye-catching, professional, no text overlays.` }],
-            generateImage: true,
-          }),
-        });
-        if (!resp.ok) throw new Error("AI image failed");
-        const data = await resp.json();
-        if (data.imageUrl) {
-          setMediaPreview(data.imageUrl);
-          setMediaType("image");
-          // Convert data URL to File so it uploads on Post
-          if (data.imageUrl.startsWith("data:")) {
-            const r = await fetch(data.imageUrl);
-            const blob = await r.blob();
-            setMediaFile(new File([blob], `jagx-ai-${Date.now()}.png`, { type: blob.type || "image/png" }));
-          } else {
-            const r = await fetch(data.imageUrl);
-            const blob = await r.blob();
-            setMediaFile(new File([blob], `jagx-ai-${Date.now()}.png`, { type: blob.type || "image/png" }));
-          }
-        }
-      }
-
-      toast.success("Generated! Review and post 🐆");
-      setShowAi(false);
-    } catch (e: any) {
-      toast.error(e.message || "AI generation failed");
-    } finally {
-      setAiBusy(false);
+  conconst generateWithAI = async () => {
+  if (!aiPrompt.trim() || aiBusy) return;
+  setAiBusy(true);
+  
+  try {
+    // 1) Generate Caption / Text
+    if (aiMode === "text" || aiMode === "both") {
+      const caption = await generateCaption(aiPrompt);
+      setContent(caption);
+      
+      // Auto-extract hashtags
+      const tags = (caption.match(/#\w+/g) || []).map(t => t.replace(/^#/, ""));
+      if (tags.length) setHashtags(tags.join(", "));
     }
+    
+    // 2) Generate Image
+    if (aiMode === "image" || aiMode === "both") {
+      const imageUrl = await generateImage(aiPrompt);
+      setMediaPreview(imageUrl);
+      setMediaType("image");
+      
+      // Convert URL to File for upload
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      setMediaFile(new File([blob], `jagx-ai-${Date.now()}.png`, { type: blob.type || "image/png" }));
+    }
+    
+    toast.success("Generated! Review and post 🐆");
+    setShowAi(false);
+    
+  } catch (e: any) {
+    console.error("AI Error:", e);
+    toast.error(e.message || "AI generation failed");
+  } finally {
+    setAiBusy(false);
+  }
+};
   };
 
   const handleMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
