@@ -2,10 +2,10 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Mail, Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Mail, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 type AuthMode = "login" | "signup" | "forgot";
-type AuthMethod = "email" | "phone";
+type AuthMethod = "email";
 type CodeStep = "request" | "verify";
 
 const COUNTRIES = ["Nigeria","United States","United Kingdom","Ghana","South Africa","Kenya","Canada","Germany","France","India","Brazil","Other"];
@@ -13,14 +13,12 @@ const COUNTRIES = ["Nigeria","United States","United Kingdom","Ghana","South Afr
 const AuthPage = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("login");
-  const [method, setMethod] = useState<AuthMethod>("email");
+  const method: AuthMethod = "email";
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [forgotStep, setForgotStep] = useState<CodeStep>("request");
   const [signupStep, setSignupStep] = useState<CodeStep>("request");
@@ -82,12 +80,12 @@ const AuthPage = () => {
     } as any).eq("user_id", userId);
   };
 
-  const handleSocial = async (provider: "google" | "apple") => {
+  const handleSocial = async (provider: "google" | "twitter") => {
   setLoading(true);
   try {
     // Use standard Supabase OAuth instead of Lovable's wrapper
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: provider === "apple" ? "apple" : "google",
+      provider,
       options: {
         // Redirect to the root URL; the app's ProtectedRoute will handle the rest
         redirectTo: window.location.origin, 
@@ -186,45 +184,10 @@ const AuthPage = () => {
     }
   };
 
-  const handlePhoneAuth = async () => {
-    setLoading(true);
-    try {
-      if (!otpSent) {
-        if (mode === "signup") {
-          const { error } = await supabase.auth.signUp({
-            phone,
-            password,
-            options: { data: { username, display_name: username } },
-          });
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.auth.signInWithOtp({ phone });
-          if (error) throw error;
-        }
-        setOtpSent(true);
-        toast.success("OTP sent to your phone!");
-      } else {
-        const { error } = await supabase.auth.verifyOtp({
-          phone,
-          token: otp,
-          type: mode === "signup" ? "sms" : "sms",
-        });
-        if (error) throw error;
-        toast.success("Welcome!");
-        navigate("/");
-      }
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "forgot") return handleForgotPassword();
-    if (method === "email") handleEmailAuth();
-    else handlePhoneAuth();
+    handleEmailAuth();
   };
 
   return (
@@ -243,26 +206,10 @@ const AuthPage = () => {
           <p className="text-sm text-muted-foreground">Buddy Connect 2.0</p>
         </div>
 
-        {/* Auth method tabs */}
         {mode !== "forgot" && (
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => { setMethod("email"); setOtpSent(false); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${
-              method === "email" ? "gold-gradient text-primary-foreground" : "bg-surface border border-border text-foreground"
-            }`}
-          >
+          <div className="flex items-center justify-center gap-2 mb-6 py-3 rounded-xl gold-gradient text-primary-foreground text-xs font-bold uppercase tracking-widest">
             <Mail className="size-4" /> Email
-          </button>
-          <button
-            onClick={() => { setMethod("phone"); setOtpSent(false); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${
-              method === "phone" ? "gold-gradient text-primary-foreground" : "bg-surface border border-border text-foreground"
-            }`}
-          >
-            <Phone className="size-4" /> Phone
-          </button>
-        </div>
+          </div>
         )}
 
         {/* Form */}
@@ -322,8 +269,7 @@ const AuthPage = () => {
             </>
           )}
 
-          {(mode === "forgot" || method === "email") ? (
-            <input
+          <input
               type="email"
               placeholder="Email address"
               value={email}
@@ -332,18 +278,8 @@ const AuthPage = () => {
               required
               disabled={mode === "forgot" && forgotStep === "verify"}
             />
-          ) : (
-            <input
-              type="tel"
-              placeholder="Phone number (+234...)"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary text-sm"
-              required
-            />
-          )}
 
-          {mode !== "forgot" && (method === "email" || (method === "phone" && mode === "signup" && !otpSent)) && (
+          {mode !== "forgot" && (
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -363,7 +299,7 @@ const AuthPage = () => {
             </div>
           )}
 
-          {((otpSent && method === "phone") || (mode === "forgot" && forgotStep === "verify") || (mode === "signup" && signupStep === "verify" && method === "email")) && (
+          {((mode === "forgot" && forgotStep === "verify") || (mode === "signup" && signupStep === "verify")) && (
             <input
               type="text"
               placeholder="6-digit code from email"
@@ -450,10 +386,10 @@ const AuthPage = () => {
                 <svg viewBox="0 0 24 24" className="size-4"><path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.4-1.7 4.1-5.4 4.1-3.3 0-5.9-2.7-5.9-6s2.6-6 5.9-6c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.6 14.7 2.7 12 2.7 6.9 2.7 2.8 6.8 2.8 12s4.1 9.3 9.2 9.3c5.3 0 8.8-3.7 8.8-9 0-.6 0-1-.1-1.5H12z"/></svg>
                 Google
               </button>
-              <button type="button" onClick={() => handleSocial("apple")} disabled={loading}
+              <button type="button" onClick={() => handleSocial("twitter")} disabled={loading}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
-                <svg viewBox="0 0 24 24" className="size-4 fill-current"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2.1-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.8 1.2 1.8 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.3-1.2 3.1-2.5.7-1 1.1-1.9 1.3-2.5-1-.4-2.7-1.4-2.7-4.2zM14 4.4c.7-.8 1.1-2 1-3.1-1 .1-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.3-.6 2.9-1.4z"/></svg>
-                Apple
+                <svg viewBox="0 0 24 24" className="size-4 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                X
               </button>
             </div>
             <p className="text-[9px] text-muted-foreground text-center mt-3 leading-relaxed">
