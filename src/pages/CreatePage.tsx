@@ -65,8 +65,6 @@ const CreatePage = () => {
     setAiBusy(false);
   }
 };
-};
-  };
 
   const handleMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
