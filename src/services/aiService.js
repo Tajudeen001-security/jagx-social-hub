@@ -1,51 +1,33 @@
-// AI Service - No SDK needed!
+// AI Service — calls the secure `gemini-ai` Supabase Edge Function.
+// The Gemini API key never touches the browser.
+import { supabase } from "@/integrations/supabase/client";
 
-export const generateSocialContent = async (prompt, contentType = "caption") => {
-  try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+async function callGemini(payload) {
+  const { data, error } = await supabase.functions.invoke("gemini-ai", { body: payload });
+  if (error) throw new Error(error.message || "AI request failed");
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
 
-    const socialPrompt = `
-      You are JagX Buddy AI, a creative social media content generator.
-      Create engaging, friendly content for: ${prompt}
-      Type: ${contentType}
-      Keep it fun, positive, and use emojis appropriately!
-      Make it 1-3 sentences max.
-    `;
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: socialPrompt
-          }]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    
-    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-      return {
-        success: true,
-        content: data.candidates[0].content.parts[0].text
-      };
-    } else {
-      throw new Error('No content generated');
-    }
-    
-  } catch (error) {
-    console.error("AI Error:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to generate content"
-    };
-  }
+/** Returns the generated text as a plain string. */
+export const generateCaption = async (prompt) => {
+  const data = await callGemini({ mode: "text", prompt, contentType: "caption" });
+  return data.text;
 };
 
-export const generateCaption = (prompt) => generateSocialContent(prompt, "caption");
-export const generatePost = (prompt) => generateSocialContent(prompt, "post");
+export const generatePost = async (prompt) => {
+  const data = await callGemini({ mode: "text", prompt, contentType: "post" });
+  return data.text;
+};
+
+/** Conversational reply for chat. `messages` is an array of {role, text}. */
+export const generateChatReply = async (messages, system) => {
+  const data = await callGemini({ mode: "chat", messages, system, contentType: "reply" });
+  return data.text;
+};
+
+/** Returns an image as a data: URL — ready to <img src=...> or upload. */
+export const generateImage = async (prompt) => {
+  const data = await callGemini({ mode: "image", prompt });
+  return data.imageUrl;
+};
