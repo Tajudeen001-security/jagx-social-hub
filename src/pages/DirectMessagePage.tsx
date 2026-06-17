@@ -598,7 +598,7 @@ const DirectMessagePage = () => {
           <button onClick={() => setShowStickers(!showStickers)} className="text-muted-foreground shrink-0"><Smile className="size-5" /></button>
           <input
             type="text"
-            placeholder="Type a message..."
+            placeholder="Message • try @JagxAI or /imagine …"
             value={input}
             onChange={(e) => { setInput(e.target.value); handleTyping(); }}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
