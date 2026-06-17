@@ -506,9 +506,10 @@ const DirectMessagePage = () => {
             </div>
           </div>
         ))}
-        {presence?.is_typing && (
+        {(presence?.is_typing || aiBusy) && (
           <div className="flex justify-start">
             <div className="px-4 py-3 rounded-2xl bg-surface border border-border/30 rounded-bl-md">
+              {aiBusy && <p className="text-[10px] text-gold mb-1 font-semibold">JagX AI is thinking…</p>}
               <div className="flex gap-1">
                 <div className="size-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: "0ms" }} />
                 <div className="size-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -604,7 +605,7 @@ const DirectMessagePage = () => {
             className="flex-1 px-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
           {input.trim() ? (
-            <button onClick={() => sendMessage()} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground shrink-0">
+            <button onClick={() => sendMessage()} disabled={aiBusy} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground shrink-0 disabled:opacity-50">
               <Send className="size-4" />
             </button>
           ) : (
