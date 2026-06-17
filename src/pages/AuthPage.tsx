@@ -80,7 +80,7 @@ const AuthPage = () => {
     } as any).eq("user_id", userId);
   };
 
-  const handleSocial = async (provider: "google" | "twitter") => {
+  const handleSocial = async (provider: "google") => {
   setLoading(true);
   try {
     // Use standard Supabase OAuth instead of Lovable's wrapper
@@ -380,16 +380,11 @@ const AuthPage = () => {
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Or continue with</span>
               <div className="flex-1 h-px bg-border" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <button type="button" onClick={() => handleSocial("google")} disabled={loading}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
                 <svg viewBox="0 0 24 24" className="size-4"><path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.4-1.7 4.1-5.4 4.1-3.3 0-5.9-2.7-5.9-6s2.6-6 5.9-6c1.9 0 3.1.8 3.9 1.5l2.6-2.5C16.9 3.6 14.7 2.7 12 2.7 6.9 2.7 2.8 6.8 2.8 12s4.1 9.3 9.2 9.3c5.3 0 8.8-3.7 8.8-9 0-.6 0-1-.1-1.5H12z"/></svg>
                 Google
-              </button>
-              <button type="button" onClick={() => handleSocial("twitter")} disabled={loading}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-surface border border-border text-foreground text-xs font-bold uppercase tracking-widest disabled:opacity-50">
-                <svg viewBox="0 0 24 24" className="size-4 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                X
               </button>
             </div>
             <p className="text-[9px] text-muted-foreground text-center mt-3 leading-relaxed">
