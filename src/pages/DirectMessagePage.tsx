@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import VideoCall from "@/components/VideoCall";
+import { parseAiTrigger, runAiText, generateAndStoreImage, AI_DISPLAY_NAME } from "@/services/chatAi";
 
 interface Message {
   id: string;
@@ -53,6 +54,8 @@ const DirectMessagePage = () => {
   const [activeCall, setActiveCall] = useState<{ type: "video" | "audio"; isIncoming?: boolean } | null>(null);
   const [showTheme, setShowTheme] = useState(false);
   const [theme, setTheme] = useState<{ theme_color: string | null; background_url: string | null } | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout>();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -196,6 +199,31 @@ const DirectMessagePage = () => {
     const { error } = await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: finalContent, message_type: type || "text" });
     if (error) toast.error("Failed to send message");
     supabase.from("user_presence").upsert({ user_id: user.id, is_typing: false, typing_to: null, is_online: true, last_seen: new Date().toISOString() }, { onConflict: "user_id" });
+    // After the user's message lands, check for an AI trigger and respond as ourselves
+    // (the only way to keep replies inside a 1:1 DM). Replies are tagged with an "🤖 JagX AI:" prefix.
+    if (!content) {
+      const trig = parseAiTrigger(msgContent);
+      if (trig && !aiInFlight.current) {
+        aiInFlight.current = true;
+        setAiBusy(true);
+        try {
+          if (trig.kind === "image") {
+            const url = await generateAndStoreImage(trig.prompt, user.id);
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: url, message_type: "image" });
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: `🤖 ${AI_DISPLAY_NAME}: generated for "${trig.prompt}"`, message_type: "text" });
+          } else {
+            const history = messages.slice(-6).map(m => ({ role: m.sender_id === user.id ? "user" as const : "model" as const, text: m.content }));
+            const reply = await runAiText(trig.prompt, history);
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: `🤖 ${AI_DISPLAY_NAME}: ${reply}`, message_type: "text" });
+          }
+        } catch (e: any) {
+          toast.error(e?.message || "AI request failed");
+        } finally {
+          aiInFlight.current = false;
+          setAiBusy(false);
+        }
+      }
+    }
   };
 
   const handleMediaSend = async (e: React.ChangeEvent<HTMLInputElement>) => {
