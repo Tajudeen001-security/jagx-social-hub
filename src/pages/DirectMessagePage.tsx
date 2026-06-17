@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import VideoCall from "@/components/VideoCall";
+import { parseAiTrigger, runAiText, generateAndStoreImage, AI_DISPLAY_NAME } from "@/services/chatAi";
 
 interface Message {
   id: string;
@@ -53,6 +54,8 @@ const DirectMessagePage = () => {
   const [activeCall, setActiveCall] = useState<{ type: "video" | "audio"; isIncoming?: boolean } | null>(null);
   const [showTheme, setShowTheme] = useState(false);
   const [theme, setTheme] = useState<{ theme_color: string | null; background_url: string | null } | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout>();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -196,6 +199,31 @@ const DirectMessagePage = () => {
     const { error } = await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: finalContent, message_type: type || "text" });
     if (error) toast.error("Failed to send message");
     supabase.from("user_presence").upsert({ user_id: user.id, is_typing: false, typing_to: null, is_online: true, last_seen: new Date().toISOString() }, { onConflict: "user_id" });
+    // After the user's message lands, check for an AI trigger and respond as ourselves
+    // (the only way to keep replies inside a 1:1 DM). Replies are tagged with an "🤖 JagX AI:" prefix.
+    if (!content) {
+      const trig = parseAiTrigger(msgContent);
+      if (trig && !aiInFlight.current) {
+        aiInFlight.current = true;
+        setAiBusy(true);
+        try {
+          if (trig.kind === "image") {
+            const url = await generateAndStoreImage(trig.prompt, user.id);
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: url, message_type: "image" });
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: `🤖 ${AI_DISPLAY_NAME}: generated for "${trig.prompt}"`, message_type: "text" });
+          } else {
+            const history = messages.slice(-6).map(m => ({ role: m.sender_id === user.id ? "user" as const : "model" as const, text: m.content }));
+            const reply = await runAiText(trig.prompt, history);
+            await supabase.from("messages").insert({ sender_id: user.id, receiver_id: userId, content: `🤖 ${AI_DISPLAY_NAME}: ${reply}`, message_type: "text" });
+          }
+        } catch (e: any) {
+          toast.error(e?.message || "AI request failed");
+        } finally {
+          aiInFlight.current = false;
+          setAiBusy(false);
+        }
+      }
+    }
   };
 
   const handleMediaSend = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -478,9 +506,10 @@ const DirectMessagePage = () => {
             </div>
           </div>
         ))}
-        {presence?.is_typing && (
+        {(presence?.is_typing || aiBusy) && (
           <div className="flex justify-start">
             <div className="px-4 py-3 rounded-2xl bg-surface border border-border/30 rounded-bl-md">
+              {aiBusy && <p className="text-[10px] text-gold mb-1 font-semibold">JagX AI is thinking…</p>}
               <div className="flex gap-1">
                 <div className="size-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: "0ms" }} />
                 <div className="size-2 rounded-full bg-gold animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -569,14 +598,14 @@ const DirectMessagePage = () => {
           <button onClick={() => setShowStickers(!showStickers)} className="text-muted-foreground shrink-0"><Smile className="size-5" /></button>
           <input
             type="text"
-            placeholder="Type a message..."
+            placeholder="Message • try @JagxAI or /imagine …"
             value={input}
             onChange={(e) => { setInput(e.target.value); handleTyping(); }}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             className="flex-1 px-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
           {input.trim() ? (
-            <button onClick={() => sendMessage()} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground shrink-0">
+            <button onClick={() => sendMessage()} disabled={aiBusy} className="size-11 rounded-xl gold-gradient flex items-center justify-center text-primary-foreground shrink-0 disabled:opacity-50">
               <Send className="size-4" />
             </button>
           ) : (
