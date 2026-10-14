@@ -19,22 +19,48 @@ const BottomNav = () => {
   const [unreadMsgs, setUnreadMsgs] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUnreadMsgs(0);
+      return;
+    }
+
+    let cancelled = false;
+    // A unique topic prevents React StrictMode/remounts from reusing a channel
+    // that is still joining or subscribed during asynchronous cleanup.
+    const channelName = `nav-msg:${user.id}:${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const load = async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("messages")
         .select("id", { count: "exact", head: true })
         .eq("receiver_id", user.id)
         .eq("is_read", false);
-      setUnreadMsgs(count || 0);
+
+      if (!cancelled && !error) setUnreadMsgs(count ?? 0);
     };
-    load();
-    const ch = supabase
-      .channel("nav-msg")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [user]);
+
+    void load();
+
+    channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` },
+        () => { void load(); },
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // The initial unread count remains available even if realtime is offline.
+          console.warn("JagX Connect unread-message realtime subscription:", status);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
@@ -48,6 +74,8 @@ const BottomNav = () => {
               return (
                 <button
                   key={item.label}
+                  type="button"
+                  aria-label="Create a post"
                   onClick={() => navigate(item.path)}
                   className="flex items-center justify-center -mt-6 size-14 rounded-full gold-gradient shadow-lg shadow-primary/30 text-primary-foreground"
                 >
@@ -59,6 +87,8 @@ const BottomNav = () => {
             return (
               <button
                 key={item.label}
+                type="button"
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => navigate(item.path)}
                 className={`relative flex flex-col items-center gap-1 px-3 py-1 transition-colors ${
                   isActive ? "text-gold" : "text-muted-foreground"
